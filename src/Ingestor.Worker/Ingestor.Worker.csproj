@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <UserSecretsId>dotnet-Ingestor.Worker-aa6732e4-a587-41d1-aaf8-7ce6ebfd61be</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ingestor.Application\Ingestor.Application.csproj" />
+    <ProjectReference Include="..\Ingestor.Infrastructure\Ingestor.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

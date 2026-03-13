@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ingestor.Application\Ingestor.Application.csproj" />
+    <ProjectReference Include="..\Ingestor.Contracts\Ingestor.Contracts.csproj" />
+    <ProjectReference Include="..\Ingestor.Infrastructure\Ingestor.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

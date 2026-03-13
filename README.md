@@ -106,7 +106,7 @@ Integration tests require Docker (Testcontainers will start a PostgreSQL instanc
 
 ## Documentation
 
-- [Scope V1(ENG)](docs/en/scope-v1-en.md)
+- [Scope V1](docs/en/scope-v1-en.md)
 - [Architecture Decision Records](docs/adrs/)
 - [Runbook](docs/runbook.md)
 

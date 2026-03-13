@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ingestor.Api/Ingestor.Api.csproj" />
+    <Project Path="src/Ingestor.Application/Ingestor.Application.csproj" />
+    <Project Path="src/Ingestor.Contracts/Ingestor.Contracts.csproj" />
+    <Project Path="src/Ingestor.Domain/Ingestor.Domain.csproj" />
+    <Project Path="src/Ingestor.Infrastructure/Ingestor.Infrastructure.csproj" />
+    <Project Path="src/Ingestor.Worker/Ingestor.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ingestor.Tests.Architecture/Ingestor.Tests.Architecture.csproj" />
+    <Project Path="tests/Ingestor.Tests.Integration/Ingestor.Tests.Integration.csproj" />
+    <Project Path="tests/Ingestor.Tests.Unit/Ingestor.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

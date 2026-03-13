@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ingestor.Domain\Ingestor.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,37 @@
+﻿namespace Ingestor.Domain.Jobs;
+
+public sealed class ImportJob
+{
+    public Guid Id { get; private set; }
+    public string SupplierCode { get; private set; }
+    public ImportType ImportType { get; private set; }
+    public JobStatus Status { get; private set; }
+    public string IdempotencyKey { get; private set; }
+    public string PayloadReference { get; private set; }
+    public DateTimeOffset ReceivedAt { get; private set; }
+    public DateTimeOffset? StartedAt { get; private set; }
+    public DateTimeOffset? CompletedAt { get; private set; }
+    public int CurrentAttempt { get; private set; }
+    public int MaxAttempts { get; private set; }
+    public string? LastErrorCode { get; private set; }
+    public string? LastErrorMessage { get; private set; }
+    
+#pragma warning disable CS8618
+    private ImportJob() {}
+#pragma warning restore CS8618
+
+    public ImportJob(Guid id, string supplierCode, ImportType importType, 
+        string idempotencyKey, string payloadReference, DateTimeOffset receivedAt,
+        int maxAttempts)
+    {
+        Id = id;
+        SupplierCode = supplierCode;
+        ImportType = importType;
+        IdempotencyKey = idempotencyKey;
+        PayloadReference = payloadReference;
+        ReceivedAt = receivedAt;
+        CurrentAttempt = 0;
+        MaxAttempts = maxAttempts;
+        Status = JobStatus.Received;
+    }
+}

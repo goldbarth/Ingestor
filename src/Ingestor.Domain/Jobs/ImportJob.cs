@@ -1,4 +1,6 @@
-﻿namespace Ingestor.Domain.Jobs;
+﻿using Ingestor.Domain.Jobs.Enums;
+
+namespace Ingestor.Domain.Jobs;
 
 public sealed class ImportJob
 {

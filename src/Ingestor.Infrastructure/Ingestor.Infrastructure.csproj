@@ -1,6 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Ingestor.Application\Ingestor.Application.csproj" />
     <ProjectReference Include="..\Ingestor.Domain\Ingestor.Domain.csproj" />
   </ItemGroup>

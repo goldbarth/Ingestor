@@ -1,4 +1,4 @@
-﻿namespace Ingestor.Domain.Jobs;
+﻿namespace Ingestor.Domain.Jobs.Enums;
 
 public enum JobStatus
 {

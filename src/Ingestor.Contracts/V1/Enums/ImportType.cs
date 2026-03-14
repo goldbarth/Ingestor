@@ -1,4 +1,4 @@
-﻿namespace Ingestor.Domain.Jobs;
+﻿namespace Ingestor.Contracts.V1.Enums;
 
 public enum ImportType
 {

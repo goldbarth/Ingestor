@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Ingestor.Infrastructure.Persistence;
+namespace Ingestor.Infrastructure.Persistence.Configurations;
 
 internal sealed class ImportPayloadConfiguration : IEntityTypeConfiguration<ImportPayload>
 {
@@ -12,9 +12,11 @@ internal sealed class ImportPayloadConfiguration : IEntityTypeConfiguration<Impo
         
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id)
+            .HasConversion(new ImportPayloadIdConverter())
             .ValueGeneratedNever();
         
         builder.Property(p => p.JobId)
+            .HasConversion(new ImportJobIdConverter())
             .IsRequired();
         
         builder.Property(p =>p.ContentType)

@@ -2,7 +2,7 @@
 
 public sealed class ImportPayload
 {
-    public Guid Id { get; private set; }
+    public PayloadId Id { get; private set; }
     public Guid JobId { get; private set; }
     public string ContentType { get; private set; }
     public byte[] RawData { get; private set; }
@@ -13,7 +13,7 @@ public sealed class ImportPayload
     private ImportPayload() {}
 #pragma warning restore CS8618
 
-    public ImportPayload(Guid id, Guid jobId, string contentType, byte[] rawData, DateTimeOffset receivedAt)
+    public ImportPayload(PayloadId id, Guid jobId, string contentType, byte[] rawData, DateTimeOffset receivedAt)
     {
         Id = id;
         JobId = jobId;

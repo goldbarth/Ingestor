@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.102'
+
+      - name: Restore
+        run: dotnet restore Ingestor.slnx
+
+      - name: Build
+        run: dotnet build Ingestor.slnx --no-restore -c Release
+
+  unit-tests:
+    name: Unit & Architecture Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.102'
+
+      - name: Restore
+        run: dotnet restore Ingestor.slnx
+
+      - name: Run unit tests
+        run: dotnet test tests/Ingestor.Tests.Unit --no-restore -c Release
+
+      - name: Run architecture tests
+        run: dotnet test tests/Ingestor.Tests.Architecture --no-restore -c Release
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.102'
+
+      - name: Restore
+        run: dotnet restore Ingestor.slnx
+
+      - name: Run integration tests
+        run: dotnet test tests/Ingestor.Tests.Integration --no-restore -c Release

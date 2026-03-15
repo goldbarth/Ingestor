@@ -4,7 +4,7 @@ namespace Ingestor.Domain.Jobs;
 
 public sealed class ImportJob
 {
-    public Guid Id { get; private set; }
+    public JobId Id { get; private set; }
     public string SupplierCode { get; private set; }
     public ImportType ImportType { get; private set; }
     public JobStatus Status { get; private set; }
@@ -22,7 +22,7 @@ public sealed class ImportJob
     private ImportJob() {}
 #pragma warning restore CS8618
 
-    public ImportJob(Guid id, string supplierCode, ImportType importType, 
+    public ImportJob(JobId id, string supplierCode, ImportType importType, 
         string idempotencyKey, string payloadReference, DateTimeOffset receivedAt,
         int maxAttempts)
     {

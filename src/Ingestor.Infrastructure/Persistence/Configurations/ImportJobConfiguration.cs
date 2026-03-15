@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Ingestor.Infrastructure.Persistence;
+namespace Ingestor.Infrastructure.Persistence.Configurations;
 
 internal sealed class ImportJobConfiguration : IEntityTypeConfiguration<ImportJob>
 {
@@ -12,6 +12,7 @@ internal sealed class ImportJobConfiguration : IEntityTypeConfiguration<ImportJo
         
         builder.HasKey(j => j.Id);
         builder.Property(j => j.Id)
+            .HasConversion(new ImportJobIdConverter())
             .ValueGeneratedNever();
         
         builder.Property(j => j.SupplierCode)

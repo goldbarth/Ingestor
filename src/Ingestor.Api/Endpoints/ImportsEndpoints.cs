@@ -1,6 +1,9 @@
 using Ingestor.Application.Common;
 using Ingestor.Application.Jobs.CreateImportJob;
+using Ingestor.Application.Jobs.GetImportJobById;
+using Ingestor.Application.Jobs.SearchImportJobs;
 using Ingestor.Contracts.V1.Responses;
+using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +23,9 @@ public static class ImportsEndpoints
 
         group.MapPost("", UploadImportAsync)
             .DisableAntiforgery();
+
+        group.MapGet("{id:guid}", GetImportJobByIdAsync);
+        group.MapGet("", SearchImportJobsAsync);
     }
 
     private static async Task<IResult> UploadImportAsync(
@@ -68,6 +74,86 @@ public static class ImportsEndpoints
                 importType,
                 "Received",
                 DateTimeOffset.UtcNow));
+    }
+
+    private static async Task<IResult> GetImportJobByIdAsync(
+        Guid id,
+        GetImportJobByIdHandler handler,
+        CancellationToken ct)
+    {
+        var query = new GetImportJobByIdQuery(new JobId(id));
+        var result = await handler.HandleAsync(query, ct);
+
+        if (result.IsFailure)
+            return MapError(result.Error!);
+
+        var dto = result.Value!;
+        return Results.Ok(new ImportJobDetailResponse(
+            dto.Id,
+            dto.SupplierCode,
+            dto.ImportType.ToString(),
+            dto.Status.ToString(),
+            dto.ReceivedAt,
+            dto.StartedAt,
+            dto.CompletedAt,
+            dto.CurrentAttempt,
+            dto.MaxAttempts,
+            dto.LastErrorCode,
+            dto.LastErrorMessage));
+    }
+
+    private static async Task<IResult> SearchImportJobsAsync(
+        [FromQuery] string? status,
+        [FromQuery] string? cursor,
+        [FromQuery] int pageSize,
+        SearchImportJobsHandler handler,
+        CancellationToken ct)
+    {
+        JobStatus? jobStatus = null;
+        if (status is not null)
+        {
+            if (!Enum.TryParse<JobStatus>(status, ignoreCase: true, out var parsedStatus))
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Invalid status.",
+                    detail: $"Status '{status}' is not valid.");
+            }
+            jobStatus = parsedStatus;
+        }
+
+        JobId? cursorId = null;
+        if (cursor is not null)
+        {
+            if (!Guid.TryParse(cursor, out var parsedCursor))
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Invalid cursor.",
+                    detail: "Cursor must be a valid GUID.");
+            }
+            cursorId = new JobId(parsedCursor);
+        }
+
+        var effectivePageSize = pageSize is > 0 and <= 100 ? pageSize : 25;
+
+        var query = new SearchImportJobsQuery(jobStatus, cursorId, effectivePageSize);
+        var result = await handler.HandleAsync(query, ct);
+
+        var page = result.Value!;
+        var items = page.Items
+            .Select(j => new ImportJobResponse(
+                j.Id.Value,
+                j.SupplierCode,
+                j.ImportType.ToString(),
+                j.Status.ToString(),
+                j.ReceivedAt))
+            .ToList();
+
+        return Results.Ok(new CursorPagedResponse<ImportJobResponse>(
+            items,
+            page.NextCursor,
+            page.HasNextPage));
     }
 
     private static IResult MapError(ApplicationError error) => error.Type switch

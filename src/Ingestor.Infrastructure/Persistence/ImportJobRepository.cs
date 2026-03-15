@@ -1,5 +1,6 @@
 using Ingestor.Application.Abstractions;
 using Ingestor.Domain.Jobs;
+using Ingestor.Domain.Jobs.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Ingestor.Infrastructure.Persistence;
@@ -22,5 +23,25 @@ internal sealed class ImportJobRepository(IngestorDbContext dbContext) : IImport
     {
         return await dbContext.ImportJobs
             .AnyAsync(j => j.IdempotencyKey == idempotencyKey, ct);
+    }
+
+    public async Task<IReadOnlyList<ImportJob>> SearchAsync(
+        JobStatus? status,
+        JobId? cursor,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = dbContext.ImportJobs.AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(j => j.Status == status.Value);
+
+        if (cursor.HasValue)
+            query = query.Where(j => j.Id.Value > cursor.Value.Value);
+
+        return await query
+            .OrderBy(j => j.Id)
+            .Take(pageSize)
+            .ToListAsync(ct);
     }
 }

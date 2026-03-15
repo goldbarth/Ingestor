@@ -1,6 +1,8 @@
+using Ingestor.Application.Abstractions;
 using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Application.Jobs.GetImportJobById;
 using Ingestor.Application.Jobs.SearchImportJobs;
+using Ingestor.Application.Parsing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ingestor.Application;
@@ -12,6 +14,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<CreateImportJobHandler>();
         services.AddScoped<GetImportJobByIdHandler>();
         services.AddScoped<SearchImportJobsHandler>();
+
+        services.AddSingleton<ICsvParser, CsvDeliveryAdviceParser>();
 
         return services;
     }

@@ -1,3 +1,4 @@
+using Ingestor.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,10 @@ public static class InfrastructureServiceExtensions
     {
         services.AddDbContext<IngestorDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services.AddScoped<IImportJobRepository, ImportJobRepository>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         return services;
     }

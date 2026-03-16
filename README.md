@@ -1,10 +1,16 @@
 # Ingestor — Fleetholm Logistics
 
+<p>
+  <a href="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml">
+    <img src="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+</p>
+
 A reliable import system for processing delivery advice files from multiple furniture and furnishing suppliers. Files are received, validated, processed, and tracked — with structured error handling, automatic retries, and full audit trails.
 
 > **Note:** Fleetholm Logistics is a fictional company. This project is a portfolio demonstration of backend reliability patterns in .NET.
 
-## What This Project Demonstrates
+## Core Focus
 
 - Asynchronous background processing with database-backed job orchestration
 - Retry logic with exponential backoff and dead-letter handling

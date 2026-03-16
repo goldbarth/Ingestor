@@ -15,7 +15,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<GetImportJobByIdHandler>();
         services.AddScoped<SearchImportJobsHandler>();
 
-        services.AddSingleton<ICsvParser, CsvDeliveryAdviceParser>();
+        services.AddSingleton<IDeliveryAdviceParser, CsvDeliveryAdviceParser>();
 
         return services;
     }

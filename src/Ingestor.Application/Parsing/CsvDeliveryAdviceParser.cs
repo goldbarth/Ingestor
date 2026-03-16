@@ -4,10 +4,10 @@ using Ingestor.Domain.Parsing;
 
 namespace Ingestor.Application.Parsing;
 
-public sealed class CsvDeliveryAdviceParser : ICsvParser
+public sealed class CsvDeliveryAdviceParser : IDeliveryAdviceParser
 {
     private static readonly string[] RequiredColumns =
-        [CsvColumns.ArticleNumber, CsvColumns.Quantity, CsvColumns.ExpectedDate, CsvColumns.SupplierRef];
+        [DeliveryAdviceFields.ArticleNumber, DeliveryAdviceFields.Quantity, DeliveryAdviceFields.ExpectedDate, DeliveryAdviceFields.SupplierRef];
 
     public ParseResult<DeliveryAdviceLine> Parse(Stream content)
     {
@@ -82,28 +82,28 @@ public sealed class CsvDeliveryAdviceParser : ICsvParser
         var errors = new List<ParseError>();
         var fields = raw.Split(',');
 
-        var articleNumber = GetField(fields, columnIndex, CsvColumns.ArticleNumber)?.Trim() ?? string.Empty;
-        var quantityRaw = GetField(fields, columnIndex, CsvColumns.Quantity)?.Trim() ?? string.Empty;
-        var expectedDateRaw = GetField(fields, columnIndex, CsvColumns.ExpectedDate)?.Trim() ?? string.Empty;
-        var supplierRef = GetField(fields, columnIndex, CsvColumns.SupplierRef)?.Trim() ?? string.Empty;
+        var articleNumber = GetField(fields, columnIndex, DeliveryAdviceFields.ArticleNumber)?.Trim() ?? string.Empty;
+        var quantityRaw = GetField(fields, columnIndex, DeliveryAdviceFields.Quantity)?.Trim() ?? string.Empty;
+        var expectedDateRaw = GetField(fields, columnIndex, DeliveryAdviceFields.ExpectedDate)?.Trim() ?? string.Empty;
+        var supplierRef = GetField(fields, columnIndex, DeliveryAdviceFields.SupplierRef)?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(articleNumber))
-            errors.Add(new ParseError(lineNumber, CsvColumns.ArticleNumber, $"{CsvColumns.ArticleNumber} is required"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ArticleNumber, $"{DeliveryAdviceFields.ArticleNumber} is required"));
 
         decimal quantity = 0;
         if (string.IsNullOrWhiteSpace(quantityRaw))
-            errors.Add(new ParseError(lineNumber, CsvColumns.Quantity, $"{CsvColumns.Quantity} is required"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.Quantity, $"{DeliveryAdviceFields.Quantity} is required"));
         else if (!decimal.TryParse(quantityRaw, NumberStyles.Number, CultureInfo.InvariantCulture, out quantity))
-            errors.Add(new ParseError(lineNumber, CsvColumns.Quantity, $"Value '{quantityRaw}' is not a valid decimal"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.Quantity, $"Value '{quantityRaw}' is not a valid decimal"));
 
         DateTimeOffset expectedDate = default;
         if (string.IsNullOrWhiteSpace(expectedDateRaw))
-            errors.Add(new ParseError(lineNumber, CsvColumns.ExpectedDate, $"{CsvColumns.ExpectedDate} is required"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"{DeliveryAdviceFields.ExpectedDate} is required"));
         else if (!DateTimeOffset.TryParse(expectedDateRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out expectedDate))
-            errors.Add(new ParseError(lineNumber, CsvColumns.ExpectedDate, $"Value '{expectedDateRaw}' is not a valid date"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"Value '{expectedDateRaw}' is not a valid date"));
 
         if (string.IsNullOrWhiteSpace(supplierRef))
-            errors.Add(new ParseError(lineNumber, CsvColumns.SupplierRef, $"{CsvColumns.SupplierRef} is required"));
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.SupplierRef, $"{DeliveryAdviceFields.SupplierRef} is required"));
 
         if (errors.Count > 0)
             return errors;

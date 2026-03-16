@@ -46,6 +46,8 @@ internal sealed class ImportJobConfiguration : IEntityTypeConfiguration<ImportJo
             .IsRequired();
         builder.Property(j => j.MaxAttempts)
             .IsRequired();
+        builder.Property(j => j.ProcessedItemCount)
+            .IsRequired();
         
         builder.Property(j => j.LastErrorCode)
             .HasMaxLength(100);

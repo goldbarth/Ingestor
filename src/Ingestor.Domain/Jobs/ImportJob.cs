@@ -17,7 +17,8 @@ public sealed class ImportJob
     public int MaxAttempts { get; private set; }
     public string? LastErrorCode { get; private set; }
     public string? LastErrorMessage { get; private set; }
-    
+    public int ProcessedItemCount { get; private set; }
+
 #pragma warning disable CS8618
     private ImportJob() {}
 #pragma warning restore CS8618
@@ -35,5 +36,12 @@ public sealed class ImportJob
         CurrentAttempt = 0;
         MaxAttempts = maxAttempts;
         Status = JobStatus.Received;
+    }
+
+    public void MarkAsSucceeded(int processedItemCount, DateTimeOffset completedAt)
+    {
+        Status = JobStatus.Succeeded;
+        ProcessedItemCount = processedItemCount;
+        CompletedAt = completedAt;
     }
 }

@@ -15,9 +15,9 @@ public sealed class CsvDeliveryAdviceParserTests
     public void Parse_ValidCsv_ReturnsSuccessWithAllLines()
     {
         var csv = """
-            ArticleNumber,Quantity,ExpectedDate,SupplierRef
-            ART-001,10,2026-04-01T00:00:00Z,SUP-42
-            ART-002,5,2026-04-15T00:00:00Z,SUP-42
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef
+            ART-001,Oak Dining Table,10,2026-04-01T00:00:00Z,SUP-42
+            ART-002,Leather Sofa,5,2026-04-15T00:00:00Z,SUP-42
             """;
 
         var result = _sut.Parse(ToStream(csv));
@@ -26,6 +26,7 @@ public sealed class CsvDeliveryAdviceParserTests
         result.Lines.Should().HaveCount(2);
 
         result.Lines[0].ArticleNumber.Should().Be("ART-001");
+        result.Lines[0].ProductName.Should().Be("Oak Dining Table");
         result.Lines[0].Quantity.Should().Be(10);
         result.Lines[0].SupplierRef.Should().Be("SUP-42");
         result.Lines[0].LineNumber.Should().Be(2);
@@ -49,8 +50,8 @@ public sealed class CsvDeliveryAdviceParserTests
     public void Parse_MissingRequiredColumn_ReturnsFailureWithHeaderError()
     {
         var csv = """
-            ArticleNumber,ExpectedDate,SupplierRef
-            ART-001,2026-04-01T00:00:00Z,SUP-42
+            ArticleNumber,ProductName,ExpectedDate,SupplierRef
+            ART-001,Oak Dining Table,2026-04-01T00:00:00Z,SUP-42
             """;
 
         var result = _sut.Parse(ToStream(csv));
@@ -65,8 +66,8 @@ public sealed class CsvDeliveryAdviceParserTests
     public void Parse_InvalidQuantityValue_ReturnsFailureWithLineError()
     {
         var csv = """
-            ArticleNumber,Quantity,ExpectedDate,SupplierRef
-            ART-001,not-a-number,2026-04-01T00:00:00Z,SUP-42
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef
+            ART-001,Oak Dining Table,not-a-number,2026-04-01T00:00:00Z,SUP-42
             """;
 
         var result = _sut.Parse(ToStream(csv));
@@ -81,21 +82,21 @@ public sealed class CsvDeliveryAdviceParserTests
     public void Parse_MultipleErrorsOnOneLine_CollectsAllErrors()
     {
         var csv = """
-            ArticleNumber,Quantity,ExpectedDate,SupplierRef
-            ,not-a-number,2026-04-01T00:00:00Z,
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef
+            ,,not-a-number,2026-04-01T00:00:00Z,
             """;
 
         var result = _sut.Parse(ToStream(csv));
 
         result.IsSuccess.Should().BeFalse();
-        result.Errors.Should().HaveCount(3);
-        result.Errors.Select(e => e.Field).Should().Contain(["ArticleNumber", "Quantity", "SupplierRef"]);
+        result.Errors.Should().HaveCount(4);
+        result.Errors.Select(e => e.Field).Should().Contain(["ArticleNumber", "ProductName", "Quantity", "SupplierRef"]);
     }
 
     [Fact]
     public void Parse_HeaderOnlyNoDataRows_ReturnsFailureWithFileError()
     {
-        var csv = "ArticleNumber,Quantity,ExpectedDate,SupplierRef";
+        var csv = "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef";
 
         var result = _sut.Parse(ToStream(csv));
 
@@ -109,8 +110,8 @@ public sealed class CsvDeliveryAdviceParserTests
     public void Parse_ExtraColumns_ReturnsSuccessAndIgnoresExtraColumns()
     {
         var csv = """
-            ArticleNumber,Quantity,ExpectedDate,SupplierRef,UnknownColumn
-            ART-001,10,2026-04-01T00:00:00Z,SUP-42,ignored-value
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef,UnknownColumn
+            ART-001,Oak Dining Table,10,2026-04-01T00:00:00Z,SUP-42,ignored-value
             """;
 
         var result = _sut.Parse(ToStream(csv));

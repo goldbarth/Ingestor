@@ -24,6 +24,9 @@ public sealed class DeliveryAdviceValidator(IClock clock)
         if (string.IsNullOrWhiteSpace(line.ArticleNumber))
             errors.Add(new ValidationError(line.LineNumber, nameof(line.ArticleNumber), $"{nameof(line.ArticleNumber)} is required"));
 
+        if (string.IsNullOrWhiteSpace(line.ProductName))
+            errors.Add(new ValidationError(line.LineNumber, nameof(line.ProductName), $"{nameof(line.ProductName)} is required"));
+
         if (line.Quantity <= 0)
             errors.Add(new ValidationError(line.LineNumber, nameof(line.Quantity), $"{nameof(line.Quantity)} must be greater than 0, got {line.Quantity}"));
 

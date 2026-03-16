@@ -16,8 +16,8 @@ public sealed class JsonDeliveryAdviceParserTests
     {
         var json = """
             [
-              { "articleNumber": "ART-001", "quantity": 10, "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" },
-              { "articleNumber": "ART-002", "quantity": 5,  "expectedDate": "2026-04-15T00:00:00Z", "supplierRef": "SUP-42" }
+              { "articleNumber": "ART-001", "productName": "Oak Dining Table", "quantity": 10, "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" },
+              { "articleNumber": "ART-002", "productName": "Leather Sofa",     "quantity": 5,  "expectedDate": "2026-04-15T00:00:00Z", "supplierRef": "SUP-42" }
             ]
             """;
 
@@ -27,6 +27,7 @@ public sealed class JsonDeliveryAdviceParserTests
         result.Lines.Should().HaveCount(2);
 
         result.Lines[0].ArticleNumber.Should().Be("ART-001");
+        result.Lines[0].ProductName.Should().Be("Oak Dining Table");
         result.Lines[0].Quantity.Should().Be(10);
         result.Lines[0].SupplierRef.Should().Be("SUP-42");
         result.Lines[0].LineNumber.Should().Be(1);
@@ -62,7 +63,7 @@ public sealed class JsonDeliveryAdviceParserTests
     {
         var json = """
             [
-              { "quantity": 10, "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" }
+              { "productName": "Oak Dining Table", "quantity": 10, "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" }
             ]
             """;
 
@@ -79,7 +80,7 @@ public sealed class JsonDeliveryAdviceParserTests
     {
         var json = """
             [
-              { "articleNumber": "ART-001", "quantity": "not-a-number", "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" }
+              { "articleNumber": "ART-001", "productName": "Oak Dining Table", "quantity": "not-a-number", "expectedDate": "2026-04-01T00:00:00Z", "supplierRef": "SUP-42" }
             ]
             """;
 
@@ -103,7 +104,7 @@ public sealed class JsonDeliveryAdviceParserTests
         var result = _sut.Parse(ToStream(json));
 
         result.IsSuccess.Should().BeFalse();
-        result.Errors.Should().HaveCount(2);
-        result.Errors.Select(e => e.Field).Should().Contain(["ArticleNumber", "SupplierRef"]);
+        result.Errors.Should().HaveCount(3);
+        result.Errors.Select(e => e.Field).Should().Contain(["ArticleNumber", "ProductName", "SupplierRef"]);
     }
 }

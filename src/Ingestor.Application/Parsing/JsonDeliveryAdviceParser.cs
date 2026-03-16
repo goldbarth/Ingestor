@@ -62,6 +62,9 @@ public sealed class JsonDeliveryAdviceParser : IDeliveryAdviceParser
         if (string.IsNullOrWhiteSpace(dto.ArticleNumber))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ArticleNumber, $"{DeliveryAdviceFields.ArticleNumber} is required"));
 
+        if (string.IsNullOrWhiteSpace(dto.ProductName))
+            errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ProductName, $"{DeliveryAdviceFields.ProductName} is required"));
+
         if (dto.Quantity is null)
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.Quantity, $"{DeliveryAdviceFields.Quantity} is required"));
 
@@ -77,14 +80,15 @@ public sealed class JsonDeliveryAdviceParser : IDeliveryAdviceParser
         if (errors.Count > 0)
             return errors;
 
-        line = new DeliveryAdviceLine(lineNumber, dto.ArticleNumber!, dto.Quantity!.Value, expectedDate, dto.SupplierRef!);
+        line = new DeliveryAdviceLine(lineNumber, dto.ArticleNumber!, dto.ProductName!, dto.Quantity!.Value, expectedDate, dto.SupplierRef!);
         return errors;
     }
 
     private sealed class JsonDeliveryAdviceLineDto
     {
         public string? ArticleNumber { get; init; }
-        public decimal? Quantity { get; init; }
+        public string? ProductName { get; init; }
+        public int? Quantity { get; init; }
         public string? ExpectedDate { get; init; }
         public string? SupplierRef { get; init; }
     }

@@ -1,3 +1,4 @@
+using Ingestor.Domain.DeliveryItems;
 using Ingestor.Domain.Jobs;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,7 @@ public class IngestorDbContext(DbContextOptions<IngestorDbContext> options) : Db
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<ImportPayload> ImportPayloads => Set<ImportPayload>();
     public DbSet<OutboxEntry> OutboxEntries => Set<OutboxEntry>();
+    public DbSet<DeliveryItem> DeliveryItems => Set<DeliveryItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -12,7 +12,7 @@ public sealed class DeliveryAdviceValidatorTests
     private readonly DeliveryAdviceValidator _sut = new(new FakeClock(Now));
 
     private static DeliveryAdviceLine ValidLine(int lineNumber = 1) =>
-        new(lineNumber, "ART-001", 10, Now.AddDays(1), "SUP-42");
+        new(lineNumber, "ART-001", "Oak Dining Table", 10, Now.AddDays(1), "SUP-42");
 
     [Fact]
     public void Validate_ValidLines_ReturnsSuccess()

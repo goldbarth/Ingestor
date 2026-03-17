@@ -20,9 +20,10 @@ internal sealed class OutboxRepository(IngestorDbContext dbContext, IClock clock
         // Set the lock
         var entry = await dbContext.OutboxEntries
             .FromSqlRaw("""
-                SELECT "Id", "JobId", "Status", "CreatedAt", "LockedAt", "ProcessedAt"
+                SELECT "Id", "JobId", "Status", "CreatedAt", "ScheduledFor", "LockedAt", "ProcessedAt"
                 FROM outbox_entries
                 WHERE "Status" = 'Pending'
+                  AND ("ScheduledFor" IS NULL OR "ScheduledFor" <= NOW())
                 ORDER BY "CreatedAt"
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED

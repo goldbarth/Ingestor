@@ -10,6 +10,7 @@ public class IngestorDbContext(DbContextOptions<IngestorDbContext> options) : Db
     public DbSet<ImportPayload> ImportPayloads => Set<ImportPayload>();
     public DbSet<OutboxEntry> OutboxEntries => Set<OutboxEntry>();
     public DbSet<DeliveryItem> DeliveryItems => Set<DeliveryItem>();
+    public DbSet<ImportAttempt> ImportAttempts => Set<ImportAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

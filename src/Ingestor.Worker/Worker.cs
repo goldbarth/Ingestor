@@ -32,9 +32,10 @@ public sealed class Worker(
         var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var jobRepository = scope.ServiceProvider.GetRequiredService<IImportJobRepository>();
         var attemptRepository = scope.ServiceProvider.GetRequiredService<IImportAttemptRepository>();
+        var deadLetterRepository = scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
         var pipelineHandler = scope.ServiceProvider.GetRequiredService<ImportPipelineHandler>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var clock = scope.ServiceProvider.GetRequiredService<Ingestor.Domain.Common.IClock>();
+        var clock = scope.ServiceProvider.GetRequiredService<Domain.Common.IClock>();
 
         var entry = await outboxRepository.ClaimNextAsync(ct);
         if (entry is null)
@@ -97,6 +98,8 @@ public sealed class Worker(
             }
             else
             {
+                var deadLetterEntry = DeadLetterEntry.From(DeadLetterEntryId.New(), job, finishedAt);
+                await deadLetterRepository.AddAsync(deadLetterEntry, ct);
                 job.TransitionTo(JobStatus.DeadLettered, finishedAt);
                 logger.LogWarning("Job {JobId} dead-lettered after {Max} attempts.", job.Id.Value, job.MaxAttempts);
             }

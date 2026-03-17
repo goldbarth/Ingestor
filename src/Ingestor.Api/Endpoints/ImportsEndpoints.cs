@@ -1,6 +1,7 @@
 using Ingestor.Application.Common;
 using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Application.Jobs.GetImportJobById;
+using Ingestor.Application.Jobs.RequeueImportJob;
 using Ingestor.Application.Jobs.SearchImportJobs;
 using Ingestor.Contracts.V1.Responses;
 using Ingestor.Domain.Jobs;
@@ -26,6 +27,7 @@ public static class ImportsEndpoints
 
         group.MapGet("{id:guid}", GetImportJobByIdAsync);
         group.MapGet("", SearchImportJobsAsync);
+        group.MapPost("{id:guid}/requeue", RequeueImportJobAsync);
     }
 
     private static async Task<IResult> UploadImportAsync(
@@ -156,8 +158,26 @@ public static class ImportsEndpoints
             page.HasNextPage));
     }
 
+    private static async Task<IResult> RequeueImportJobAsync(
+        Guid id,
+        RequeueImportJobHandler handler,
+        CancellationToken ct)
+    {
+        var command = new RequeueImportJobCommand(new JobId(id));
+        var result = await handler.HandleAsync(command, ct);
+
+        if (result.IsFailure)
+            return MapError(result.Error!);
+
+        return Results.Accepted($"/api/imports/{id}");
+    }
+
     private static IResult MapError(ApplicationError error) => error.Type switch
     {
+        ErrorType.NotFound => Results.Problem(
+            statusCode: StatusCodes.Status404NotFound,
+            title: "Not found.",
+            detail: error.Message),
         ErrorType.Conflict => Results.Problem(
             statusCode: StatusCodes.Status409Conflict,
             title: "Conflict.",

@@ -17,7 +17,8 @@ public static class ImportJobWorkflow
         (JobStatus.Processing,       JobStatus.ProcessingFailed),
         (JobStatus.ProcessingFailed, JobStatus.Parsing),
         (JobStatus.ProcessingFailed, JobStatus.DeadLettered),
-        (JobStatus.DeadLettered,     JobStatus.Received),
+        (JobStatus.DeadLettered,     JobStatus.Received),      // Manual requeue
+        (JobStatus.ValidationFailed, JobStatus.Received),      // Manual requeue after correction
     ];
 
     public static bool CanTransition(JobStatus from, JobStatus to)

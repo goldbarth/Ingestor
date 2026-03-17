@@ -4,6 +4,7 @@ using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Application.Jobs.GetImportJobById;
 using Ingestor.Application.Jobs.SearchImportJobs;
 using Ingestor.Application.Parsing;
+using Ingestor.Application.Pipeline;
 using Ingestor.Application.Processing;
 using Ingestor.Domain.Common;
 using Ingestor.Domain.Validation;
@@ -20,7 +21,11 @@ public static class ApplicationServiceExtensions
         services.AddScoped<SearchImportJobsHandler>();
 
         services.AddScoped<ProcessDeliveryItemsHandler>();
-        services.AddSingleton<IDeliveryAdviceParser, CsvDeliveryAdviceParser>();
+        services.AddScoped<ImportPipelineHandler>();
+
+        services.AddKeyedSingleton<IDeliveryAdviceParser, CsvDeliveryAdviceParser>("csv");
+        services.AddKeyedSingleton<IDeliveryAdviceParser, JsonDeliveryAdviceParser>("json");
+
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<DeliveryAdviceValidator>();
 

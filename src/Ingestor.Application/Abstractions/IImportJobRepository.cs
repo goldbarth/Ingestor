@@ -7,6 +7,7 @@ public interface IImportJobRepository
 {
     Task AddAsync(ImportJob job, ImportPayload payload, CancellationToken ct = default);
     Task<ImportJob?> GetByIdAsync(JobId id, CancellationToken ct = default);
+    Task<ImportPayload?> GetPayloadByJobIdAsync(JobId jobId, CancellationToken ct = default);
     Task<bool> ExistsByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default);
     Task<IReadOnlyList<ImportJob>> SearchAsync(
         JobStatus? status,

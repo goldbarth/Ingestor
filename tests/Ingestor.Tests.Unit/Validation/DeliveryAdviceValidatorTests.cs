@@ -76,6 +76,19 @@ public sealed class DeliveryAdviceValidatorTests
     }
 
     [Fact]
+    public void Validate_EmptyProductName_ReturnsValidationError()
+    {
+        var line = ValidLine() with { ProductName = "" };
+
+        var result = _sut.Validate([line]);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Match<ValidationError>(e =>
+                e.Field == "ProductName" && e.LineNumber == 1);
+    }
+
+    [Fact]
     public void Validate_EmptySupplierRef_ReturnsValidationError()
     {
         var line = ValidLine() with { SupplierRef = "" };

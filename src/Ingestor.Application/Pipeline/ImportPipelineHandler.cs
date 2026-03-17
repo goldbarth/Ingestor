@@ -37,10 +37,11 @@ public sealed class ImportPipelineHandler(
 
         if (!parseResult.IsSuccess)
         {
+            var parseErrorMessage = $"Parsing failed with {parseResult.Errors.Count} error(s).";
+            job.RecordPermanentFailure("pipeline.parse_failed", parseErrorMessage);
             job.TransitionTo(JobStatus.ValidationFailed, clock.UtcNow);
             await unitOfWork.SaveChangesAsync(ct);
-            return PipelineResult.Failed("pipeline.parse_failed",
-                $"Parsing failed with {parseResult.Errors.Count} error(s).");
+            return PipelineResult.Failed("pipeline.parse_failed", parseErrorMessage);
         }
 
         // --- Validating ---
@@ -51,10 +52,11 @@ public sealed class ImportPipelineHandler(
 
         if (!validationResult.IsValid)
         {
+            var validationErrorMessage = $"Validation failed with {validationResult.Errors.Count} error(s).";
+            job.RecordPermanentFailure("pipeline.validation_failed", validationErrorMessage);
             job.TransitionTo(JobStatus.ValidationFailed, clock.UtcNow);
             await unitOfWork.SaveChangesAsync(ct);
-            return PipelineResult.Failed("pipeline.validation_failed",
-                $"Validation failed with {validationResult.Errors.Count} error(s).");
+            return PipelineResult.Failed("pipeline.validation_failed", validationErrorMessage);
         }
 
         // --- Processing ---

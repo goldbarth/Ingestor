@@ -4,8 +4,8 @@ using Ingestor.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("Ingestor")
-    ?? throw new InvalidOperationException("Connection string 'Ingestor' is not configured.");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddApplication();

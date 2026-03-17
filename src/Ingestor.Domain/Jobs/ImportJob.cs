@@ -45,6 +45,12 @@ public sealed class ImportJob
         LastErrorMessage = errorMessage;
     }
 
+    public void RecordPermanentFailure(string errorCode, string errorMessage)
+    {
+        LastErrorCode = errorCode;
+        LastErrorMessage = errorMessage;
+    }
+
     public void Requeue(DateTimeOffset now)
     {
         ImportJobWorkflow.EnsureCanTransition(Status, JobStatus.Received);

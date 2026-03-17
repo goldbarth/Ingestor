@@ -15,17 +15,31 @@ internal sealed class OutboxRepository(IngestorDbContext dbContext, IClock clock
 
     public async Task<OutboxEntry?> ClaimNextAsync(CancellationToken ct = default)
     {
+        await using var tx = await dbContext.Database.BeginTransactionAsync(ct);
+        
+        // Set the lock
         var entry = await dbContext.OutboxEntries
-            .Where(e => e.Status == OutboxStatus.Pending)
-            .OrderBy(e => e.CreatedAt)
+            .FromSqlRaw("""
+                SELECT "Id", "JobId", "Status", "CreatedAt", "LockedAt", "ProcessedAt"
+                FROM outbox_entries
+                WHERE "Status" = 'Pending'
+                ORDER BY "CreatedAt"
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+                """)
             .FirstOrDefaultAsync(ct);
 
         if (entry is null)
+        {
+            await tx.RollbackAsync(ct);
             return null;
+        }
 
-        // Safely claim the next pending outbox entry to prevent race conditions for worker threads
+        // Save the row
         entry.Claim(clock.UtcNow);
         await dbContext.SaveChangesAsync(ct);
+        // Release the lock
+        await tx.CommitAsync(ct);
 
         return entry;
     }

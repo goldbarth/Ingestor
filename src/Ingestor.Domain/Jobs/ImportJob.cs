@@ -45,6 +45,18 @@ public sealed class ImportJob
         LastErrorMessage = errorMessage;
     }
 
+    public void Requeue(DateTimeOffset now)
+    {
+        ImportJobWorkflow.EnsureCanTransition(Status, JobStatus.Received);
+
+        CurrentAttempt = 0;
+        StartedAt = null;
+        CompletedAt = null;
+        LastErrorCode = null;
+        LastErrorMessage = null;
+        Status = JobStatus.Received;
+    }
+
     public void TransitionTo(JobStatus newStatus, DateTimeOffset now, int? processedItemCount = null)
     {
         ImportJobWorkflow.EnsureCanTransition(Status, newStatus);

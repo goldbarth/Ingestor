@@ -9,8 +9,13 @@ internal sealed class IngestorDbContextFactory : IDesignTimeDbContextFactory<Ing
 {
     public IngestorDbContext CreateDbContext(string[] args)
     {
+        var connectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING") 
+                               ?? throw new InvalidOperationException("Missing environment variable CONNECTION_STRING. " +
+                                                                      "Please set it or configure it in your .env file.");
+        
         var options = new DbContextOptionsBuilder<IngestorDbContext>()
-            .UseNpgsql("Host=localhost;Port=5432;Database=ingestor;Username=ingestor;Password=changeme")
+            
+            .UseNpgsql(connectionString)
             .Options;
 
         return new IngestorDbContext(options);

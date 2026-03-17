@@ -2,6 +2,7 @@ using Ingestor.Application.Abstractions;
 using Ingestor.Domain.Common;
 using Ingestor.Domain.DeliveryItems;
 using Ingestor.Domain.Jobs;
+using Ingestor.Domain.Jobs.Enums;
 using Ingestor.Domain.Parsing;
 
 namespace Ingestor.Application.Processing;
@@ -36,7 +37,7 @@ public sealed class ProcessDeliveryItemsHandler(
 
         await deliveryItemRepository.AddRangeAsync(items, ct);
 
-        job.MarkAsSucceeded(items.Count, processedAt);
+        job.TransitionTo(JobStatus.Succeeded, processedAt, items.Count);
 
         await unitOfWork.SaveChangesAsync(ct);
 

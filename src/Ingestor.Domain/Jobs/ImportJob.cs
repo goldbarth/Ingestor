@@ -1,4 +1,4 @@
-﻿using Ingestor.Domain.Jobs.Enums;
+using Ingestor.Domain.Jobs.Enums;
 
 namespace Ingestor.Domain.Jobs;
 
@@ -23,7 +23,7 @@ public sealed class ImportJob
     private ImportJob() {}
 #pragma warning restore CS8618
 
-    public ImportJob(JobId id, string supplierCode, ImportType importType, 
+    public ImportJob(JobId id, string supplierCode, ImportType importType,
         string idempotencyKey, string payloadReference, DateTimeOffset receivedAt,
         int maxAttempts)
     {
@@ -38,10 +38,19 @@ public sealed class ImportJob
         Status = JobStatus.Received;
     }
 
-    public void MarkAsSucceeded(int processedItemCount, DateTimeOffset completedAt)
+    public void TransitionTo(JobStatus newStatus, DateTimeOffset now, int? processedItemCount = null)
     {
-        Status = JobStatus.Succeeded;
-        ProcessedItemCount = processedItemCount;
-        CompletedAt = completedAt;
+        ImportJobWorkflow.EnsureCanTransition(Status, newStatus);
+
+        if (newStatus == JobStatus.Parsing && StartedAt is null)
+            StartedAt = now;
+
+        if (newStatus is JobStatus.Succeeded or JobStatus.ValidationFailed or JobStatus.DeadLettered)
+            CompletedAt = now;
+
+        if (newStatus == JobStatus.Succeeded && processedItemCount.HasValue)
+            ProcessedItemCount = processedItemCount.Value;
+
+        Status = newStatus;
     }
 }

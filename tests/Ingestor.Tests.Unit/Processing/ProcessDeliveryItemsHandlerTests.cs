@@ -113,14 +113,23 @@ public sealed class ProcessDeliveryItemsHandlerTests
         result.ErrorCode.Should().Be("processing.job_not_found");
     }
 
-    private static ImportJob CreateJob() => new(
-        JobId.New(),
-        "SUP-42",
-        ImportType.CsvDeliveryAdvice,
-        "idempotency-key",
-        "payload-ref",
-        Now,
-        maxAttempts: 3);
+    private static ImportJob CreateJob()
+    {
+        var job = new ImportJob(
+            JobId.New(),
+            "SUP-42",
+            ImportType.CsvDeliveryAdvice,
+            "idempotency-key",
+            "payload-ref",
+            Now,
+            maxAttempts: 3);
+
+        job.TransitionTo(JobStatus.Parsing, Now);
+        job.TransitionTo(JobStatus.Validating, Now);
+        job.TransitionTo(JobStatus.Processing, Now);
+
+        return job;
+    }
 
     private sealed class FakeImportJobRepository : IImportJobRepository
     {

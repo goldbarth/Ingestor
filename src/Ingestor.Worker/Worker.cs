@@ -1,13 +1,15 @@
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Pipeline;
+using Microsoft.Extensions.Options;
 
 namespace Ingestor.Worker;
 
 public sealed class Worker(
     IServiceScopeFactory scopeFactory,
-    ILogger<Worker> logger) : BackgroundService
+    ILogger<Worker> logger,
+    IOptions<WorkerOptions> options) : BackgroundService
 {
-    private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(5);
+    private TimeSpan PollingInterval => TimeSpan.FromSeconds(options.Value.PollingIntervalSeconds);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

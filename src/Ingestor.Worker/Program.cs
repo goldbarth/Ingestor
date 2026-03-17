@@ -9,6 +9,7 @@ var connectionString = builder.Configuration.GetConnectionString("Ingestor")
 
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddApplication();
+builder.Services.Configure<WorkerOptions>(builder.Configuration.GetSection(WorkerOptions.SectionName));
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

@@ -17,6 +17,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IDeliveryItemRepository, EfDeliveryItemRepository>();
         services.AddScoped<IImportAttemptRepository, EfImportAttemptRepository>();
+        services.AddScoped<IDeadLetterRepository, EfDeadLetterRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         return services;

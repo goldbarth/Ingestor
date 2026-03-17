@@ -11,6 +11,7 @@ public class IngestorDbContext(DbContextOptions<IngestorDbContext> options) : Db
     public DbSet<OutboxEntry> OutboxEntries => Set<OutboxEntry>();
     public DbSet<DeliveryItem> DeliveryItems => Set<DeliveryItem>();
     public DbSet<ImportAttempt> ImportAttempts => Set<ImportAttempt>();
+    public DbSet<DeadLetterEntry> DeadLetterEntries => Set<DeadLetterEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

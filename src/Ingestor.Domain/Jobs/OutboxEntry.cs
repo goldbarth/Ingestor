@@ -22,4 +22,16 @@ public sealed class OutboxEntry
         Status = OutboxStatus.Pending;
         CreatedAt = createdAt;
     }
+
+    public void Claim(DateTimeOffset now)
+    {
+        Status = OutboxStatus.Processing;
+        LockedAt = now;
+    }
+
+    public void Complete(DateTimeOffset now)
+    {
+        Status = OutboxStatus.Done;
+        ProcessedAt = now;
+    }
 }

@@ -143,6 +143,9 @@ public sealed class ProcessDeliveryItemsHandlerTests
         public Task<ImportJob?> GetByIdAsync(JobId id, CancellationToken ct = default)
             => Task.FromResult(_jobs.GetValueOrDefault(id));
 
+        public Task<ImportPayload?> GetPayloadByJobIdAsync(JobId jobId, CancellationToken ct = default)
+            => throw new NotImplementedException();
+
         public Task<bool> ExistsByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
             => throw new NotImplementedException();
 

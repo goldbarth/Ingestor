@@ -1,6 +1,14 @@
+using Ingestor.Application;
+using Ingestor.Infrastructure.Persistence;
 using Ingestor.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("Ingestor")
+    ?? throw new InvalidOperationException("Connection string 'Ingestor' is not configured.");
+
+builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddApplication();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

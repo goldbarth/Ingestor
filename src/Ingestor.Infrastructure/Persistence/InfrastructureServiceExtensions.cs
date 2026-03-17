@@ -16,6 +16,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IImportJobRepository, ImportJobRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IDeliveryItemRepository, EfDeliveryItemRepository>();
+        services.AddScoped<IImportAttemptRepository, EfImportAttemptRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
         return services;

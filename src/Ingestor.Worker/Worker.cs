@@ -1,5 +1,7 @@
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Pipeline;
+using Ingestor.Domain.Jobs;
+using Ingestor.Domain.Jobs.Enums;
 using Microsoft.Extensions.Options;
 
 namespace Ingestor.Worker;
@@ -28,27 +30,79 @@ public sealed class Worker(
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
+        var jobRepository = scope.ServiceProvider.GetRequiredService<IImportJobRepository>();
+        var attemptRepository = scope.ServiceProvider.GetRequiredService<IImportAttemptRepository>();
         var pipelineHandler = scope.ServiceProvider.GetRequiredService<ImportPipelineHandler>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var clock = scope.ServiceProvider.GetRequiredService<Ingestor.Domain.Common.IClock>();
 
         var entry = await outboxRepository.ClaimNextAsync(ct);
-
         if (entry is null)
             return;
 
-        logger.LogInformation("Processing job {JobId}.", entry.JobId.Value);
+        logger.LogInformation("Processing job {JobId} (attempt {Attempt}).", entry.JobId.Value, entry.JobId);
 
-        var result = await pipelineHandler.HandleAsync(entry.JobId, ct);
+        var startedAt = clock.UtcNow;
 
-        if (result.IsSuccess)
+        try
         {
+            var result = await pipelineHandler.HandleAsync(entry.JobId, ct);
+            var finishedAt = clock.UtcNow;
+
+            var attempt = result.IsSuccess
+                ? ImportAttempt.Succeeded(ImportAttemptId.New(), entry.JobId,
+                    attemptNumber: 1, startedAt, finishedAt)
+                : ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
+                    attemptNumber: 1, startedAt, finishedAt,
+                    ErrorCategory.Permanent, result.ErrorCode!, result.ErrorMessage!);
+
+            await attemptRepository.AddAsync(attempt, ct);
             await outboxRepository.MarkAsDoneAsync(entry.Id, ct);
-            logger.LogInformation("Job {JobId} succeeded. Items processed: {Count}.",
-                entry.JobId.Value, result.ProcessedItemCount);
+            await unitOfWork.SaveChangesAsync(ct);
+
+            if (result.IsSuccess)
+                logger.LogInformation("Job {JobId} succeeded. Items: {Count}.", entry.JobId.Value, result.ProcessedItemCount);
+            else
+                logger.LogWarning("Job {JobId} permanently failed: {ErrorCode}.", entry.JobId.Value, result.ErrorCode);
         }
-        else
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning("Job {JobId} failed. Error: {ErrorCode} — {ErrorMessage}.",
-                entry.JobId.Value, result.ErrorCode, result.ErrorMessage);
+            var finishedAt = clock.UtcNow;
+            logger.LogError(ex, "Job {JobId} failed with transient error.", entry.JobId.Value);
+
+            var job = await jobRepository.GetByIdAsync(entry.JobId, ct);
+            if (job is null)
+                return;
+
+            job.RecordFailure("worker.transient_error", ex.Message);
+
+            var attempt = ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
+                job.CurrentAttempt, startedAt, finishedAt,
+                ErrorCategory.Transient, "worker.transient_error", ex.Message);
+
+            await attemptRepository.AddAsync(attempt, ct);
+
+            if (job.CurrentAttempt < job.MaxAttempts)
+            {
+                var delay = RetryPolicy.CalculateDelay(job.CurrentAttempt);
+                var retryEntry = new OutboxEntry(
+                    OutboxEntryId.New(), job.Id, finishedAt,
+                    scheduledFor: finishedAt.Add(delay));
+
+                job.TransitionTo(JobStatus.ProcessingFailed, finishedAt);
+                await outboxRepository.AddAsync(retryEntry, ct);
+
+                logger.LogInformation("Job {JobId} scheduled for retry in {Delay}s (attempt {Attempt}/{Max}).",
+                    job.Id.Value, delay.TotalSeconds, job.CurrentAttempt, job.MaxAttempts);
+            }
+            else
+            {
+                job.TransitionTo(JobStatus.DeadLettered, finishedAt);
+                logger.LogWarning("Job {JobId} dead-lettered after {Max} attempts.", job.Id.Value, job.MaxAttempts);
+            }
+
+            await outboxRepository.MarkAsDoneAsync(entry.Id, ct);
+            await unitOfWork.SaveChangesAsync(ct);
         }
     }
 }

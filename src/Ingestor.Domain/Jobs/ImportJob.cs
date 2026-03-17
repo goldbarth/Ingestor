@@ -38,6 +38,13 @@ public sealed class ImportJob
         Status = JobStatus.Received;
     }
 
+    public void RecordFailure(string errorCode, string errorMessage)
+    {
+        CurrentAttempt++;
+        LastErrorCode = errorCode;
+        LastErrorMessage = errorMessage;
+    }
+
     public void TransitionTo(JobStatus newStatus, DateTimeOffset now, int? processedItemCount = null)
     {
         ImportJobWorkflow.EnsureCanTransition(Status, newStatus);

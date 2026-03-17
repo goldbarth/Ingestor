@@ -27,6 +27,7 @@ internal sealed class OutboxEntryConfiguration : IEntityTypeConfiguration<Outbox
         builder.Property(e => e.CreatedAt)
             .IsRequired();
 
+        builder.Property(e => e.ScheduledFor);
         builder.Property(e => e.LockedAt);
         builder.Property(e => e.ProcessedAt);
 

@@ -120,4 +120,21 @@ public sealed class CsvDeliveryAdviceParserTests
         result.Lines.Should().ContainSingle()
             .Which.ArticleNumber.Should().Be("ART-001");
     }
+
+    [Fact]
+    public void Parse_Utf8BomPreamble_ReturnsSuccessWithCorrectLines()
+    {
+        var csv = "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef\r\n" +
+                  "ART-001,Oak Dining Table,10,2026-04-01T00:00:00Z,SUP-42";
+
+        var bytes = System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes(csv))
+            .ToArray();
+
+        var result = _sut.Parse(new MemoryStream(bytes));
+
+        result.IsSuccess.Should().BeTrue();
+        result.Lines.Should().ContainSingle()
+            .Which.ArticleNumber.Should().Be("ART-001");
+    }
 }

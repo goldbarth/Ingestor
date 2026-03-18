@@ -45,6 +45,7 @@ app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = WriteJsonResponse });
 app.MapImportsEndpoints();
+app.MapMetricsEndpoints();
 
 app.Run();
 return;

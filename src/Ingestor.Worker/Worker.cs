@@ -10,7 +10,8 @@ namespace Ingestor.Worker;
 public sealed class Worker(
     IServiceScopeFactory scopeFactory,
     ILogger<Worker> logger,
-    IOptions<WorkerOptions> options) : BackgroundService
+    IOptions<WorkerOptions> options,
+    WorkerHeartbeat heartbeat) : BackgroundService
 {
     private TimeSpan PollingInterval => TimeSpan.FromSeconds(options.Value.PollingIntervalSeconds);
 
@@ -20,6 +21,7 @@ public sealed class Worker(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            heartbeat.Beat();
             await ProcessNextAsync(stoppingToken);
             await Task.Delay(PollingInterval, stoppingToken);
         }

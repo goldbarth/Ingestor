@@ -1,6 +1,7 @@
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Common;
 using Ingestor.Domain.Jobs;
+using Ingestor.Domain.Jobs.Enums;
 
 namespace Ingestor.Application.Jobs.CreateImportJob;
 
@@ -16,7 +17,14 @@ public sealed class CreateImportJobHandler(
 
         var existingJob = await jobRepository.GetByIdempotencyKeyAsync(idempotencyKey, ct);
         if (existingJob is not null)
+        {
+            if (existingJob.Status == JobStatus.DeadLettered)
+                return Result<CreateImportJobResult>.Conflict(
+                    "job.dead_lettered",
+                    $"A previous submission with this file is dead-lettered. Contact an operator to requeue job '{existingJob.Id.Value}'.");
+
             return Result<CreateImportJobResult>.Success(new(existingJob.Id, IsNew: false, existingJob.Status));
+        }
 
         var jobId = JobId.New();
 

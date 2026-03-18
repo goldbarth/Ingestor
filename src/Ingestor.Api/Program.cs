@@ -4,8 +4,12 @@ using Ingestor.Api.Endpoints;
 using Ingestor.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Trace;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, config) =>
+    config.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddOpenApi();
 

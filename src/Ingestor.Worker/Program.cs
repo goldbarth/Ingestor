@@ -3,8 +3,12 @@ using Ingestor.Application.Telemetry;
 using Ingestor.Infrastructure.Persistence;
 using Ingestor.Worker;
 using OpenTelemetry.Trace;
+using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddSerilog((_, config) =>
+    config.ReadFrom.Configuration(builder.Configuration));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");

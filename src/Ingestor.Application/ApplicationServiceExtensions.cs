@@ -4,6 +4,7 @@ using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Application.Jobs.GetImportJobById;
 using Ingestor.Application.Jobs.RequeueImportJob;
 using Ingestor.Application.Jobs.SearchImportJobs;
+using Ingestor.Application.Metrics;
 using Ingestor.Application.Parsing;
 using Ingestor.Application.Pipeline;
 using Ingestor.Application.Processing;
@@ -21,6 +22,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<GetImportJobByIdHandler>();
         services.AddScoped<SearchImportJobsHandler>();
         services.AddScoped<RequeueImportJobHandler>();
+        services.AddScoped<GetJobMetricsHandler>();
+        services.AddScoped<GetProcessingMetricsHandler>();
 
         services.AddScoped<ProcessDeliveryItemsHandler>();
         services.AddScoped<ImportPipelineHandler>();

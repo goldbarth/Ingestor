@@ -14,4 +14,5 @@ public interface IImportJobRepository
         JobId? cursor,
         int pageSize,
         CancellationToken ct = default);
+    Task<IReadOnlyDictionary<JobStatus, int>> GetStatusCountsAsync(CancellationToken ct = default);
 }

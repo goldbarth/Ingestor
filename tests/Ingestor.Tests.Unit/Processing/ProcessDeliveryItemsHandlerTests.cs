@@ -151,6 +151,9 @@ public sealed class ProcessDeliveryItemsHandlerTests
 
         public Task<IReadOnlyList<ImportJob>> SearchAsync(JobStatus? status, JobId? cursor, int pageSize, CancellationToken ct = default)
             => throw new NotImplementedException();
+
+        public Task<IReadOnlyDictionary<JobStatus, int>> GetStatusCountsAsync(CancellationToken ct = default)
+            => throw new NotImplementedException();
     }
 
     private sealed class FakeDeliveryItemRepository : IDeliveryItemRepository

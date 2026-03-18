@@ -7,6 +7,7 @@ public sealed class OutboxEntry
     public OutboxEntryId Id { get; private set; }
     public JobId JobId { get; private set; }
     public OutboxStatus Status { get; private set; }
+    public int AttemptNumber { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? ScheduledFor { get; private set; }
     public DateTimeOffset? LockedAt { get; private set; }
@@ -16,11 +17,12 @@ public sealed class OutboxEntry
     private OutboxEntry() { }
 #pragma warning restore CS8618
 
-    public OutboxEntry(OutboxEntryId id, JobId jobId, DateTimeOffset createdAt, DateTimeOffset? scheduledFor = null)
+    public OutboxEntry(OutboxEntryId id, JobId jobId, DateTimeOffset createdAt, int attemptNumber, DateTimeOffset? scheduledFor = null)
     {
         Id = id;
         JobId = jobId;
         Status = OutboxStatus.Pending;
+        AttemptNumber = attemptNumber;
         CreatedAt = createdAt;
         ScheduledFor = scheduledFor;
     }

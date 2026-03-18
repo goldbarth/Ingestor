@@ -37,7 +37,7 @@ public sealed class RequeueImportJobHandler(
 
         job.Requeue(now);
 
-        var outboxEntry = new OutboxEntry(OutboxEntryId.New(), job.Id, now);
+        var outboxEntry = new OutboxEntry(OutboxEntryId.New(), job.Id, now, attemptNumber: 1);
         await outboxRepository.AddAsync(outboxEntry, ct);
         await unitOfWork.SaveChangesAsync(ct);
 

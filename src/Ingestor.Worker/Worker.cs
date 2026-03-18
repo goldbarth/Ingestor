@@ -52,9 +52,9 @@ public sealed class Worker(
 
             var attempt = result.IsSuccess
                 ? ImportAttempt.Succeeded(ImportAttemptId.New(), entry.JobId,
-                    attemptNumber: 1, startedAt, finishedAt)
+                    entry.AttemptNumber, startedAt, finishedAt)
                 : ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
-                    attemptNumber: 1, startedAt, finishedAt,
+                    entry.AttemptNumber, startedAt, finishedAt,
                     ErrorCategory.Permanent, result.ErrorCode!, result.ErrorMessage!);
 
             await attemptRepository.AddAsync(attempt, ct);
@@ -88,6 +88,7 @@ public sealed class Worker(
                 var delay = RetryPolicy.CalculateDelay(job.CurrentAttempt);
                 var retryEntry = new OutboxEntry(
                     OutboxEntryId.New(), job.Id, finishedAt,
+                    attemptNumber: job.CurrentAttempt + 1,
                     scheduledFor: finishedAt.Add(delay));
 
                 job.TransitionTo(JobStatus.ProcessingFailed, finishedAt);

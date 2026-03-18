@@ -68,10 +68,20 @@ public static class ImportsEndpoints
         if (result.IsFailure)
             return MapError(result.Error!);
 
+        var jobResult = result.Value!;
+
+        if (!jobResult.IsNew)
+            return Results.Ok(new ImportJobResponse(
+                jobResult.JobId.Value,
+                supplierCode,
+                importType,
+                jobResult.ExistingStatus!.Value.ToString(),
+                DateTimeOffset.UtcNow));
+
         return Results.Created(
-            $"/api/imports/{result.Value!.Value}",
+            $"/api/imports/{jobResult.JobId.Value}",
             new ImportJobResponse(
-                result.Value.Value,
+                jobResult.JobId.Value,
                 supplierCode,
                 importType,
                 "Received",

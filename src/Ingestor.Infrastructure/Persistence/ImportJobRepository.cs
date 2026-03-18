@@ -25,10 +25,10 @@ internal sealed class ImportJobRepository(IngestorDbContext dbContext) : IImport
             .FirstOrDefaultAsync(p => p.JobId == jobId, ct);
     }
 
-    public async Task<bool> ExistsByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
+    public async Task<ImportJob?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
     {
         return await dbContext.ImportJobs
-            .AnyAsync(j => j.IdempotencyKey == idempotencyKey, ct);
+            .FirstOrDefaultAsync(j => j.IdempotencyKey == idempotencyKey, ct);
     }
 
     public async Task<IReadOnlyList<ImportJob>> SearchAsync(

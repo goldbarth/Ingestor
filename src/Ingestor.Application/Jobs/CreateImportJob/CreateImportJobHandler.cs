@@ -9,13 +9,14 @@ public sealed class CreateImportJobHandler(
     IOutboxRepository outboxRepository,
     IUnitOfWork unitOfWork)
 {
-    public async Task<Result<JobId>> HandleAsync(CreateImportJobCommand command, CancellationToken ct = default)
+    public async Task<Result<CreateImportJobResult>> HandleAsync(CreateImportJobCommand command, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
-        var idempotencyKey = ComputeIdempotencyKey(command.SupplierCode, command.RawData);
+        var idempotencyKey = IdempotencyKeyComputer.Compute(command.SupplierCode, command.RawData);
 
-        if (await jobRepository.ExistsByIdempotencyKeyAsync(idempotencyKey, ct))
-            return Result<JobId>.Conflict("job.duplicate", "A job with this file and supplier already exists.");
+        var existingJob = await jobRepository.GetByIdempotencyKeyAsync(idempotencyKey, ct);
+        if (existingJob is not null)
+            return Result<CreateImportJobResult>.Success(new(existingJob.Id, IsNew: false, existingJob.Status));
 
         var jobId = JobId.New();
 
@@ -44,12 +45,7 @@ public sealed class CreateImportJobHandler(
         await outboxRepository.AddAsync(outboxEntry, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
-        return Result<JobId>.Success(jobId);
+        return Result<CreateImportJobResult>.Success(new(jobId, IsNew: true));
     }
 
-    private static string ComputeIdempotencyKey(string supplierCode, byte[] rawData)
-    {
-        var hash = System.Security.Cryptography.SHA256.HashData(rawData);
-        return $"{supplierCode}:{Convert.ToHexString(hash)}";
-    }
 }

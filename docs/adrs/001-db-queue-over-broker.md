@@ -1,6 +1,6 @@
 # ADR-001: Database-Backed Queue over Message Broker
 
-**Date:** 2026-03-15
+**Date:** 2026-03-15  
 **Status:** Accepted
 
 ---

@@ -39,7 +39,8 @@ public sealed class CreateImportJobHandler(
         var outboxEntry = new OutboxEntry(
             OutboxEntryId.New(),
             jobId,
-            now);
+            now,
+            attemptNumber: 1);
 
         await jobRepository.AddAsync(job, payload, ct);
         await outboxRepository.AddAsync(outboxEntry, ct);

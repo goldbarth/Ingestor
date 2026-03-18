@@ -24,6 +24,9 @@ internal sealed class OutboxEntryConfiguration : IEntityTypeConfiguration<Outbox
             .HasConversion<string>()
             .HasMaxLength(30);
 
+        builder.Property(e => e.AttemptNumber)
+            .IsRequired();
+
         builder.Property(e => e.CreatedAt)
             .IsRequired();
 

@@ -27,8 +27,11 @@ RUN dotnet publish src/Ingestor.Worker/Ingestor.Worker.csproj \
     --no-restore \
     -o /app/publish
 
-# Stage 2 – Runtime (.NET runtime only, no ASP.NET Core, no SDK, no source code)
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+# Stage 2 – Runtime (ASP.NET Core, no SDK, no source code)
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+# libgssapi-krb5-2 is required by Npgsql for GSSAPI support at startup
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Ingestor.Worker.dll"]

@@ -1,7 +1,9 @@
 using Ingestor.Application;
+using Ingestor.Application.Telemetry;
 using Ingestor.Api.Endpoints;
 using Ingestor.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource(IngestorActivitySource.Name)
+        .AddConsoleExporter());
 
 var app = builder.Build();
 

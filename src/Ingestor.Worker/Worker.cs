@@ -33,6 +33,7 @@ public sealed class Worker(
         var jobRepository = scope.ServiceProvider.GetRequiredService<IImportJobRepository>();
         var attemptRepository = scope.ServiceProvider.GetRequiredService<IImportAttemptRepository>();
         var deadLetterRepository = scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
+        var exceptionClassifier = scope.ServiceProvider.GetRequiredService<IExceptionClassifier>();
         var pipelineHandler = scope.ServiceProvider.GetRequiredService<ImportPipelineHandler>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var clock = scope.ServiceProvider.GetRequiredService<Domain.Common.IClock>();
@@ -69,21 +70,24 @@ public sealed class Worker(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var finishedAt = clock.UtcNow;
-            logger.LogError(ex, "Job {JobId} failed with transient error.", entry.JobId.Value);
+            var category = exceptionClassifier.Classify(ex);
+            var errorCode = category == ErrorCategory.Transient ? "worker.transient_error" : "worker.unexpected_error";
+
+            logger.LogError(ex, "Job {JobId} failed with {Category} error.", entry.JobId.Value, category);
 
             var job = await jobRepository.GetByIdAsync(entry.JobId, ct);
             if (job is null)
                 return;
 
-            job.RecordFailure("worker.transient_error", ex.Message);
+            job.RecordFailure(errorCode, ex.Message);
 
             var attempt = ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
                 job.CurrentAttempt, startedAt, finishedAt,
-                ErrorCategory.Transient, "worker.transient_error", ex.Message);
+                category, errorCode, ex.Message);
 
             await attemptRepository.AddAsync(attempt, ct);
 
-            if (job.CurrentAttempt < job.MaxAttempts)
+            if (category == ErrorCategory.Transient && job.CurrentAttempt < job.MaxAttempts)
             {
                 var delay = RetryPolicy.CalculateDelay(job.CurrentAttempt);
                 var retryEntry = new OutboxEntry(
@@ -102,7 +106,8 @@ public sealed class Worker(
                 var deadLetterEntry = DeadLetterEntry.From(DeadLetterEntryId.New(), job, finishedAt);
                 await deadLetterRepository.AddAsync(deadLetterEntry, ct);
                 job.TransitionTo(JobStatus.DeadLettered, finishedAt);
-                logger.LogWarning("Job {JobId} dead-lettered after {Max} attempts.", job.Id.Value, job.MaxAttempts);
+                logger.LogWarning("Job {JobId} dead-lettered ({Category}, attempt {Attempt}/{Max}).",
+                    job.Id.Value, category, job.CurrentAttempt, job.MaxAttempts);
             }
 
             await outboxRepository.MarkAsDoneAsync(entry.Id, ct);

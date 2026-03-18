@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ingestor.Application\Ingestor.Application.csproj" />
     <ProjectReference Include="..\..\src\Ingestor.Domain\Ingestor.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Ingestor.Infrastructure\Ingestor.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

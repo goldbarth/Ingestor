@@ -3,6 +3,7 @@ using Ingestor.Application.Pipeline;
 using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
 using Microsoft.Extensions.Options;
+using Serilog.Context;
 
 namespace Ingestor.Worker;
 
@@ -42,7 +43,9 @@ public sealed class Worker(
         if (entry is null)
             return;
 
-        logger.LogInformation("Processing job {JobId} (attempt {Attempt}).", entry.JobId.Value, entry.JobId);
+        using var jobIdContext = LogContext.PushProperty("JobId", entry.JobId.Value);
+
+        logger.LogInformation("Processing job {JobId} (attempt {Attempt}).", entry.JobId.Value, entry.AttemptNumber);
 
         var startedAt = clock.UtcNow;
 

@@ -1,6 +1,7 @@
 using Ingestor.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Ingestor.Infrastructure;
 
 namespace Ingestor.Infrastructure.Persistence;
 
@@ -19,6 +20,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IImportAttemptRepository, EfImportAttemptRepository>();
         services.AddScoped<IDeadLetterRepository, EfDeadLetterRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddSingleton<IExceptionClassifier, ExceptionClassifier>();
 
         return services;
     }

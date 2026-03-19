@@ -41,6 +41,8 @@ public sealed class Worker(
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var clock = scope.ServiceProvider.GetRequiredService<Domain.Common.IClock>();
 
+        var auditEventRepository = scope.ServiceProvider.GetRequiredService<IAuditEventRepository>();
+
         var entry = await outboxRepository.ClaimNextAsync(ct);
         if (entry is null)
             return;
@@ -92,6 +94,8 @@ public sealed class Worker(
 
             await attemptRepository.AddAsync(attempt, ct);
 
+            var preTransitionStatus = job.Status;
+
             if (category == ErrorCategory.Transient && job.CurrentAttempt < job.MaxAttempts)
             {
                 var delay = RetryPolicy.CalculateDelay(job.CurrentAttempt);
@@ -101,6 +105,9 @@ public sealed class Worker(
                     scheduledFor: finishedAt.Add(delay));
 
                 job.TransitionTo(JobStatus.ProcessingFailed, finishedAt);
+                await auditEventRepository.AddAsync(new AuditEvent(
+                    AuditEventId.New(), job.Id, preTransitionStatus, JobStatus.ProcessingFailed,
+                    AuditEventTrigger.Worker, finishedAt, ex.Message), ct);
                 await outboxRepository.AddAsync(retryEntry, ct);
 
                 logger.LogInformation("Job {JobId} scheduled for retry in {Delay}s (attempt {Attempt}/{Max}).",
@@ -111,6 +118,11 @@ public sealed class Worker(
                 var deadLetterEntry = DeadLetterEntry.From(DeadLetterEntryId.New(), job, finishedAt);
                 await deadLetterRepository.AddAsync(deadLetterEntry, ct);
                 job.TransitionTo(JobStatus.DeadLettered, finishedAt);
+                await auditEventRepository.AddAsync(new AuditEvent(
+                    AuditEventId.New(), job.Id, preTransitionStatus, JobStatus.DeadLettered,
+                    AuditEventTrigger.Worker, finishedAt,
+                    $"Exhausted {job.CurrentAttempt}/{job.MaxAttempts} attempts"), ct);
+
                 logger.LogWarning("Job {JobId} dead-lettered ({Category}, attempt {Attempt}/{Max}).",
                     job.Id.Value, category, job.CurrentAttempt, job.MaxAttempts);
             }

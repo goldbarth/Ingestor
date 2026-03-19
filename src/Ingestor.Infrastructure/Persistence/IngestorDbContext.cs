@@ -12,6 +12,7 @@ public class IngestorDbContext(DbContextOptions<IngestorDbContext> options) : Db
     public DbSet<DeliveryItem> DeliveryItems => Set<DeliveryItem>();
     public DbSet<ImportAttempt> ImportAttempts => Set<ImportAttempt>();
     public DbSet<DeadLetterEntry> DeadLetterEntries => Set<DeadLetterEntry>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

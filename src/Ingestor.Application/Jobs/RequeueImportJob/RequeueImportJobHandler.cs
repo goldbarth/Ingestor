@@ -9,6 +9,7 @@ namespace Ingestor.Application.Jobs.RequeueImportJob;
 public sealed class RequeueImportJobHandler(
     IImportJobRepository jobRepository,
     IOutboxRepository outboxRepository,
+    IAuditEventRepository auditEventRepository,
     IUnitOfWork unitOfWork,
     IClock clock)
 {
@@ -34,8 +35,13 @@ public sealed class RequeueImportJobHandler(
                 $"Import job '{command.Id.Value}' cannot be requeued from status '{job.Status}'.");
 
         var now = clock.UtcNow;
+        var oldStatus = job.Status;
 
         job.Requeue(now);
+
+        await auditEventRepository.AddAsync(new AuditEvent(
+            AuditEventId.New(), job.Id, oldStatus, JobStatus.Received,
+            AuditEventTrigger.Api, now), ct);
 
         var outboxEntry = new OutboxEntry(OutboxEntryId.New(), job.Id, now, attemptNumber: 1);
         await outboxRepository.AddAsync(outboxEntry, ct);

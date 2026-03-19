@@ -5,8 +5,9 @@
 @jobId = 019d05bd-1546-7718-84d8-e9f181640f7f
 @status = Succeeded
 
-###
 # ── Imports ──────────────────────────────────────────────────────────────────
+
+### Upload a new import job (CSV)
 
 ### POST /api/imports – Upload a new import job (CSV)
 POST {{baseUrl}}/api/imports
@@ -29,7 +30,7 @@ ART-001,Sofa Milano,10,2026-04-01,REF-001
 ART-002,Chair Stockholm,5,2026-04-15,REF-002
 --boundary--
 
-###
+### Upload a new import job (JSON)
 
 ### POST /api/imports – Upload a new import job (JSON)
 POST {{baseUrl}}/api/imports
@@ -50,47 +51,50 @@ Content-Type: application/json
 [{"articleNumber":"ART-001","productName":"Sofa Milano","quantity":10,"expectedDate":"2026-04-01","supplierRef":"REF-001"}]
 --boundary--
 
-###
+### Get import job by ID
 
 ### GET /api/imports/{id} – Get import job by ID
 GET {{baseUrl}}/api/imports/{{jobId}}
 Accept: application/json
 
-###
+### Search all jobs (no filter)
 
 ### GET /api/imports – Search all jobs (no filter)
 GET {{baseUrl}}/api/imports?pageSize=25
 Accept: application/json
 
-###
+### Search by status
 
 ### GET /api/imports – Search by status
 GET {{baseUrl}}/api/imports?status={{status}}&pageSize=25
 Accept: application/json
 
-###
+### Search with cursor (pagination)
 
 # Cursor search doesnt work right now
 ### GET /api/imports – Search with cursor (pagination)
 GET {{baseUrl}}/api/imports?status=Succeeded&cursor={{jobId}}&pageSize=10
 Accept: application/json
 
-###
+### Requeue a dead-lettered job
 
 ### POST /api/imports/{id}/requeue – Requeue a dead-lettered job
 POST {{baseUrl}}/api/imports/{{jobId}}/requeue
 
+### Get the Audit-Event History
+
 ### GET /api/imports/{id}/history – Get the Audit-Event History
 GET {{baseUrl}}/api/imports/{{jobId}}/history
 
-###
 # ── Metrics ──────────────────────────────────────────────────────────────────
+
+### Get Job counts by status
 
 ### GET /api/metrics/jobs – Job counts by status
 GET {{baseUrl}}/api/metrics/jobs
 Accept: application/json
 
-###
+### Get Processing success/failure rates
 
 ### GET /api/metrics/processing – Processing success/failure rates
 GET {{baseUrl}}/api/metrics/processing

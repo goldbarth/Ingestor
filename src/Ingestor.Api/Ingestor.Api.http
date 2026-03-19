@@ -2,7 +2,7 @@
 @baseUrl = http://localhost:8200
 # Local
 # @baseUrl = http://localhost:5179
-@jobId = 019d054d-5a5b-7a6b-ac19-8dacbb1a5265
+@jobId = 019d05bd-1546-7718-84d8-e9f181640f7f
 @status = Succeeded
 
 ###
@@ -79,7 +79,9 @@ Accept: application/json
 
 ### POST /api/imports/{id}/requeue – Requeue a dead-lettered job
 POST {{baseUrl}}/api/imports/{{jobId}}/requeue
-Content-Length: 0
+
+### GET /api/imports/{id}/history – Get the Audit-Event History
+GET {{baseUrl}}/api/imports/{{jobId}}/history
 
 ###
 # ── Metrics ──────────────────────────────────────────────────────────────────

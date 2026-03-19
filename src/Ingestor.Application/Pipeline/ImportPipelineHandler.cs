@@ -14,6 +14,7 @@ namespace Ingestor.Application.Pipeline;
 public sealed class ImportPipelineHandler(
     IImportJobRepository jobRepository,
     IDeliveryItemRepository deliveryItemRepository,
+    IAuditEventRepository auditEventRepository,
     IUnitOfWork unitOfWork,
     DeliveryAdviceValidator validator,
     IClock clock,
@@ -38,7 +39,12 @@ public sealed class ImportPipelineHandler(
         {
             parsingActivity?.SetTag("job.id", jobIdTag);
 
-            job.TransitionTo(JobStatus.Parsing, clock.UtcNow);
+            var parsingNow = clock.UtcNow;
+            var preParsingStatus = job.Status;
+            job.TransitionTo(JobStatus.Parsing, parsingNow);
+            await auditEventRepository.AddAsync(new AuditEvent(
+                AuditEventId.New(), job.Id, preParsingStatus, JobStatus.Parsing,
+                AuditEventTrigger.Worker, parsingNow), ct);
             await unitOfWork.SaveChangesAsync(ct);
 
             var parser = job.ImportType == ImportType.CsvDeliveryAdvice ? csvParser : jsonParser;
@@ -48,8 +54,13 @@ public sealed class ImportPipelineHandler(
             {
                 var parseErrorMessage = $"Parsing failed with {parseResult.Errors.Count} error(s).";
                 parsingActivity?.SetStatus(ActivityStatusCode.Error, parseErrorMessage);
+                var parseFailNow = clock.UtcNow;
+                var preParseFailStatus = job.Status;
                 job.RecordPermanentFailure("pipeline.parse_failed", parseErrorMessage);
-                job.TransitionTo(JobStatus.ValidationFailed, clock.UtcNow);
+                job.TransitionTo(JobStatus.ValidationFailed, parseFailNow);
+                await auditEventRepository.AddAsync(new AuditEvent(
+                    AuditEventId.New(), job.Id, preParseFailStatus, JobStatus.ValidationFailed,
+                    AuditEventTrigger.Worker, parseFailNow, parseErrorMessage), ct);
                 await unitOfWork.SaveChangesAsync(ct);
                 return PipelineResult.Failed("pipeline.parse_failed", parseErrorMessage);
             }
@@ -60,7 +71,12 @@ public sealed class ImportPipelineHandler(
             {
                 validatingActivity?.SetTag("job.id", jobIdTag);
 
-                job.TransitionTo(JobStatus.Validating, clock.UtcNow);
+                var validatingNow = clock.UtcNow;
+                var preValidatingStatus = job.Status;
+                job.TransitionTo(JobStatus.Validating, validatingNow);
+                await auditEventRepository.AddAsync(new AuditEvent(
+                    AuditEventId.New(), job.Id, preValidatingStatus, JobStatus.Validating,
+                    AuditEventTrigger.Worker, validatingNow), ct);
                 await unitOfWork.SaveChangesAsync(ct);
 
                 var validationResult = validator.Validate(parseResult.Lines);
@@ -69,8 +85,13 @@ public sealed class ImportPipelineHandler(
                 {
                     var validationErrorMessage = $"Validation failed with {validationResult.Errors.Count} error(s).";
                     validatingActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
+                    var validationFailNow = clock.UtcNow;
+                    var preValidationFailStatus = job.Status;
                     job.RecordPermanentFailure("pipeline.validation_failed", validationErrorMessage);
-                    job.TransitionTo(JobStatus.ValidationFailed, clock.UtcNow);
+                    job.TransitionTo(JobStatus.ValidationFailed, validationFailNow);
+                    await auditEventRepository.AddAsync(new AuditEvent(
+                        AuditEventId.New(), job.Id, preValidationFailStatus, JobStatus.ValidationFailed,
+                        AuditEventTrigger.Worker, validationFailNow, validationErrorMessage), ct);
                     await unitOfWork.SaveChangesAsync(ct);
                     return PipelineResult.Failed("pipeline.validation_failed", validationErrorMessage);
                 }
@@ -81,7 +102,12 @@ public sealed class ImportPipelineHandler(
                 {
                     processingActivity?.SetTag("job.id", jobIdTag);
 
-                    job.TransitionTo(JobStatus.Processing, clock.UtcNow);
+                    var processingNow = clock.UtcNow;
+                    var preProcessingStatus = job.Status;
+                    job.TransitionTo(JobStatus.Processing, processingNow);
+                    await auditEventRepository.AddAsync(new AuditEvent(
+                        AuditEventId.New(), job.Id, preProcessingStatus, JobStatus.Processing,
+                        AuditEventTrigger.Worker, processingNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 
                     var processedAt = clock.UtcNow;
@@ -98,7 +124,12 @@ public sealed class ImportPipelineHandler(
                         .ToList();
 
                     await deliveryItemRepository.AddRangeAsync(items, ct);
-                    job.TransitionTo(JobStatus.Succeeded, clock.UtcNow, items.Count);
+                    var succeededNow = clock.UtcNow;
+                    var preSucceededStatus = job.Status;
+                    job.TransitionTo(JobStatus.Succeeded, succeededNow, items.Count);
+                    await auditEventRepository.AddAsync(new AuditEvent(
+                        AuditEventId.New(), job.Id, preSucceededStatus, JobStatus.Succeeded,
+                        AuditEventTrigger.Worker, succeededNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 
                     processingActivity?.SetTag("job.processed_item_count", items.Count);

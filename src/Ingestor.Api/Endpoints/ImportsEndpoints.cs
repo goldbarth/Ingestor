@@ -1,6 +1,7 @@
 using Ingestor.Application.Common;
 using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Application.Jobs.GetImportJobById;
+using Ingestor.Application.Jobs.GetJobHistory;
 using Ingestor.Application.Jobs.RequeueImportJob;
 using Ingestor.Application.Jobs.SearchImportJobs;
 using Ingestor.Contracts.V1.Responses;
@@ -27,6 +28,7 @@ public static class ImportsEndpoints
 
         group.MapGet("{id:guid}", GetImportJobByIdAsync);
         group.MapGet("", SearchImportJobsAsync);
+        group.MapGet("{id:guid}/history", GetJobHistoryAsync);
         group.MapPost("{id:guid}/requeue", RequeueImportJobAsync);
     }
 
@@ -166,6 +168,29 @@ public static class ImportsEndpoints
             items,
             page.NextCursor,
             page.HasNextPage));
+    }
+
+    private static async Task<IResult> GetJobHistoryAsync(
+        Guid id,
+        GetJobHistoryHandler handler,
+        CancellationToken ct)
+    {
+        var query = new GetJobHistoryQuery(new JobId(id));
+        var result = await handler.HandleAsync(query, ct);
+
+        if (result.IsFailure)
+            return MapError(result.Error!);
+
+        var response = result.Value!
+            .Select(e => new AuditEventResponse(
+                e.OccurredAt,
+                e.OldStatus.ToString(),
+                e.NewStatus.ToString(),
+                e.TriggeredBy.ToString(),
+                e.Comment))
+            .ToList();
+
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> RequeueImportJobAsync(

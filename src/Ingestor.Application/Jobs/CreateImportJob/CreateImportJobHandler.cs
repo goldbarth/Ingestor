@@ -10,8 +10,15 @@ public sealed class CreateImportJobHandler(
     IOutboxRepository outboxRepository,
     IUnitOfWork unitOfWork)
 {
+    private const int MaxPayloadSizeBytes = 10 * 1024 * 1024;
+
     public async Task<Result<CreateImportJobResult>> HandleAsync(CreateImportJobCommand command, CancellationToken ct = default)
     {
+        if (command.RawData.Length > MaxPayloadSizeBytes)
+            return Result<CreateImportJobResult>.Validation(
+                "job.payload_too_large",
+                $"Payload size {command.RawData.Length / 1024 / 1024} MB exceeds the {MaxPayloadSizeBytes / 1024 / 1024} MB limit.");
+
         var now = DateTimeOffset.UtcNow;
         var idempotencyKey = IdempotencyKeyComputer.Compute(command.SupplierCode, command.RawData);
 

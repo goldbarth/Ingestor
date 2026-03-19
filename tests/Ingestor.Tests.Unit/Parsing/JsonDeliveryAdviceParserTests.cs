@@ -37,6 +37,17 @@ public sealed class JsonDeliveryAdviceParserTests
     }
 
     [Fact]
+    public void Parse_ZeroByteStream_ReturnsFileEmptyError()
+    {
+        var result = _sut.Parse(new MemoryStream());
+
+        result.IsSuccess.Should().BeFalse();
+        result.Errors.Should().ContainSingle()
+            .Which.Should().Match<ParseError>(e =>
+                e.Field == "File" && e.Message == "File is empty");
+    }
+
+    [Fact]
     public void Parse_MalformedJson_ReturnsFailureWithFileError()
     {
         var result = _sut.Parse(ToStream("this is not json"));

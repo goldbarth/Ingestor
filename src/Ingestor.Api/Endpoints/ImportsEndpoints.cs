@@ -19,6 +19,8 @@ public static class ImportsEndpoints
         "application/json"
     ];
 
+    private const long MaxFileSizeBytes = 10L * 1024 * 1024; // 10 MB
+
     public static void MapImportsEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/imports");
@@ -53,6 +55,14 @@ public static class ImportsEndpoints
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Invalid import type.",
                 detail: $"Import type '{importType}' is not valid.");
+        }
+
+        if (file.Length > MaxFileSizeBytes)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "File too large.",
+                detail: $"File size exceeds the {MaxFileSizeBytes / 1024 / 1024} MB limit.");
         }
 
         using var stream = file.OpenReadStream();

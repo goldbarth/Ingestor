@@ -9,10 +9,14 @@ public static class InfrastructureServiceExtensions
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        string connectionString)
+        string connectionString,
+        Action<DbContextOptionsBuilder>? configureOptions = null)
     {
         services.AddDbContext<IngestorDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        {
+            options.UseNpgsql(connectionString);
+            configureOptions?.Invoke(options);
+        });
 
         services.AddScoped<IImportJobRepository, ImportJobRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();

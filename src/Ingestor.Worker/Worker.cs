@@ -22,7 +22,15 @@ public sealed class Worker(
         while (!stoppingToken.IsCancellationRequested)
         {
             heartbeat.Beat();
-            await ProcessNextAsync(stoppingToken);
+            try
+            {
+                await ProcessNextAsync(stoppingToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Unhandled error in poll cycle; resuming in {Delay}s.",
+                    options.Value.PollingIntervalSeconds);
+            }
             await Task.Delay(PollingInterval, stoppingToken);
         }
 

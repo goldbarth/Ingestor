@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Ingestor.Application.Abstractions;
 using Ingestor.Domain.Parsing;
 
@@ -11,49 +12,64 @@ public sealed class CsvDeliveryAdviceParser : IDeliveryAdviceParser
 
     public ParseResult<DeliveryAdviceLine> Parse(Stream content)
     {
-        using var reader = new StreamReader(content, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+        using var reader = new StreamReader(
+            content,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
+            detectEncodingFromByteOrderMarks: true,
+            bufferSize: -1,
+            leaveOpen: true);
 
-        var headerLine = reader.ReadLine();
-
-        if (headerLine is null)
-            return ParseResult<DeliveryAdviceLine>.Failure(
-            [
-                new ParseError(null, "File", "File is empty")
-            ]);
-
-        var (columnIndex, readOnlyList) = ParseHeader(headerLine);
-        if (readOnlyList.Count > 0)
-            return ParseResult<DeliveryAdviceLine>.Failure(readOnlyList);
-
-        var lines = new List<DeliveryAdviceLine>();
-        var errors = new List<ParseError>();
-        var lineNumber = 1;
-
-        while (!reader.EndOfStream)
+        try
         {
-            lineNumber++;
-            var raw = reader.ReadLine();
+            var headerLine = reader.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(raw))
-                continue;
+            if (headerLine is null)
+                return ParseResult<DeliveryAdviceLine>.Failure(
+                [
+                    new ParseError(null, "File", "File is empty")
+                ]);
 
-            var parseErrors = TryParseLine(raw, lineNumber, columnIndex, out var line);
-            if (parseErrors.Count > 0)
-                errors.AddRange(parseErrors);
-            else
-                lines.Add(line!);
+            var (columnIndex, readOnlyList) = ParseHeader(headerLine);
+            if (readOnlyList.Count > 0)
+                return ParseResult<DeliveryAdviceLine>.Failure(readOnlyList);
+
+            var lines = new List<DeliveryAdviceLine>();
+            var errors = new List<ParseError>();
+            var lineNumber = 1;
+
+            while (!reader.EndOfStream)
+            {
+                lineNumber++;
+                var raw = reader.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(raw))
+                    continue;
+
+                var parseErrors = TryParseLine(raw, lineNumber, columnIndex, out var line);
+                if (parseErrors.Count > 0)
+                    errors.AddRange(parseErrors);
+                else
+                    lines.Add(line!);
+            }
+
+            if (errors.Count > 0)
+                return ParseResult<DeliveryAdviceLine>.Failure(errors);
+
+            if (lines.Count == 0)
+                return ParseResult<DeliveryAdviceLine>.Failure(
+                [
+                    new ParseError(null, "File", "File contains no data rows")
+                ]);
+
+            return ParseResult<DeliveryAdviceLine>.Success(lines);
         }
-
-        if (errors.Count > 0)
-            return ParseResult<DeliveryAdviceLine>.Failure(errors);
-
-        if (lines.Count == 0)
+        catch (DecoderFallbackException)
+        {
             return ParseResult<DeliveryAdviceLine>.Failure(
             [
-                new ParseError(null, "File", "File contains no data rows")
+                new ParseError(null, "File", "File contains invalid characters. Ensure the file is UTF-8 encoded.")
             ]);
-
-        return ParseResult<DeliveryAdviceLine>.Success(lines);
+        }
     }
 
     private static (Dictionary<string, int> columnIndex, IReadOnlyList<ParseError> errors) ParseHeader(string headerLine)

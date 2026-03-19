@@ -14,6 +14,12 @@ public sealed class JsonDeliveryAdviceParser : IDeliveryAdviceParser
 
     public ParseResult<DeliveryAdviceLine> Parse(Stream content)
     {
+        if (content is { CanSeek: true, Length: 0 })
+            return ParseResult<DeliveryAdviceLine>.Failure(
+            [
+                new ParseError(null, "File", "File is empty")
+            ]);
+
         List<JsonDeliveryAdviceLineDto>? dtos;
 
         try

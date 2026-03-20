@@ -6,115 +6,175 @@
   </a>
 </p>
 
-A reliable import system for processing delivery advice files from multiple furniture and furnishing suppliers. Files are received, validated, processed, and tracked — with structured error handling, automatic retries, and full audit trails.
+A production-grade .NET 10 application for reliable asynchronous import processing. Files are received, validated, processed, and tracked — with structured error handling, automatic retries, and full audit trails.
 
-> **Note:** Fleetholm Logistics is a fictional company. This project is a portfolio demonstration of backend reliability patterns in .NET.
+> Fleetholm Logistics is a fictional company used as the domain context for this project.
 
-## Core Focus
+---
 
-- Asynchronous background processing with database-backed job orchestration
-- Retry logic with exponential backoff and dead-letter handling
-- Idempotent file ingestion (no duplicate processing)
-- Explicit status model with strict state transitions
-- Structured error classification (transient vs. permanent)
-- Full audit trail for every job lifecycle event
-- Observability: OpenTelemetry tracing, structured logging, health checks
-- Integration testing with Testcontainers
+## Core capabilities
 
-## Architecture
+- **Outbox pattern** — jobs are enqueued via a database table; no message broker, no distributed transactions
+- **Strict state machine** — all job status transitions are validated at the domain layer; invalid transitions throw
+- **Retry with exponential backoff** — transient failures are retried up to a configurable maximum; permanent failures fail immediately
+- **Dead-letter & manual requeue** — exhausted jobs are snapshotted and can be requeued via API
+- **Stale-lock recovery** — `Processing` entries orphaned by worker crashes are automatically recovered on the next poll cycle
+- **Idempotency** — duplicate uploads are detected by SHA-256 content + supplier hash; no double processing
+- **Result pattern** — no exceptions cross application layer boundaries; all outcomes are explicit `Result<T>` values
+- **Full audit trail** — every status transition is recorded with trigger, timestamp, and context
 
-Two-process topology:
+---
 
-| Process         | Responsibility                                  |
-|-----------------|-------------------------------------------------|
-| **API Host**    | File upload, job registration, query endpoints  |
-| **Worker Host** | Asynchronous job processing, retry, dead-letter |
+## System architecture
 
-Both processes share a PostgreSQL database. Job coordination uses a database-backed outbox pattern (no external message broker in V1).
+Two independently deployable processes share a single PostgreSQL database.
 
 ```
-┌──────────┐      ┌────────────┐     ┌────────────┐
-│  Client  │────▶│  API Host  │────▶│ PostgreSQL │
-└──────────┘      └────────────┘     └─────┬──────┘
-                                           │
-                                    ┌──────┴──────┐
-                                    │ Worker Host │
-                                    └─────────────┘
+ ┌───────────────────────┐          ┌───────────────────────┐
+ │     Ingestor.Api      │          │   Ingestor.Worker     │
+ │  POST /api/imports    │          │   BackgroundService   │
+ │  GET  /api/imports    │          │   Poll → Process      │
+ │  POST /…/requeue      │          │   Retry / Dead-letter │
+ └──────────┬────────────┘          └──────────┬────────────┘
+            │                                   │
+            └─────────────┬─────────────────────┘
+                          │
+             ┌────────────▼────────────┐
+             │       PostgreSQL        │
+             │  import_jobs            │
+             │  outbox_entries         │
+             │  import_payloads        │
+             │  delivery_items         │
+             │  import_attempts        │
+             │  dead_letter_entries    │
+             │  audit_events           │
+             └─────────────────────────┘
 ```
 
-### Project Structure
+---
+
+## Job lifecycle
 
 ```
-src/
-  Ingestor.Contracts/        Shared enums, DTOs, error contracts
-  Ingestor.Domain/           Entities, value objects, domain events
-  Ingestor.Application/      Use cases, pipeline steps, interfaces
-  Ingestor.Infrastructure/   EF Core, outbox, observability setup
-  Ingestor.Api/              ASP.NET Core Minimal API
-  Ingestor.Worker/           BackgroundService for job processing
-
-tests/
-  Ingestor.Tests.Unit/       Parsers, validators, retry logic
-  Ingestor.Tests.Integration/ Full pipeline tests with Testcontainers
-  Ingestor.Tests.Architecture/ Layer dependency verification
-
-docs/
-  scope-v1.md               Project scope and requirements
-  adrs/                     Architecture Decision Records
-  runbook.md                Operational procedures
+Received ──→ Parsing ──→ Validating ──→ Processing ──→ Succeeded
+                │              │               │
+                ├──────────────┴───→ ValidationFailed
+                │
+                └──→ ProcessingFailed ──→ (retry) ──→ Parsing
+                                    └──→ (exhausted) ──→ DeadLettered
+                                                               │
+                                                         (requeue) ──→ Received
 ```
 
-## Tech Stack
+Each transition is enforced by `ImportJobWorkflow`. Attempting an unlisted transition throws a `DomainException`.
 
-- .NET 10 / ASP.NET Core Minimal API
-- PostgreSQL
-- EF Core
-- Docker Compose
-- GitHub Actions
-- OpenTelemetry
-- Serilog
-- Testcontainers
-- xUnit / FluentAssertions
+---
 
-## Getting Started
+## Layer structure
 
-### Prerequisites
+```
+Worker  ──┐
+Api     ──┼──→  Application  ──→  Domain
+          └──→  Infrastructure ──→  Application, Domain
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
-- [Docker](https://docs.docker.com/get-docker/)
+Domain          →  (nothing)
+Contracts       →  (nothing)
+```
 
-### Run locally
+| Layer | Responsibility |
+|---|---|
+| **Domain** | Entities, value objects, state machine, domain errors |
+| **Application** | Use-case handlers, pipeline orchestration, repository abstractions |
+| **Infrastructure** | EF Core, PostgreSQL, outbox repository with pessimistic locking |
+| **Contracts** | Versioned HTTP request/response DTOs |
+| **Api** | Minimal API endpoints, ProblemDetails mapping |
+| **Worker** | BackgroundService poll loop, retry logic, dead-lettering |
+
+---
+
+## Key patterns and their ADRs
+
+| Pattern | Where | ADR |
+|---|---|---|
+| DB-backed outbox over message broker | `OutboxRepository` | [ADR-001](docs/adrs/001-db-queue-over-broker.md) |
+| Pessimistic locking with `FOR UPDATE SKIP LOCKED` | `OutboxRepository.ClaimNextAsync` | [ADR-003](docs/adrs/003-pessimistic-locking.md) |
+| Raw payload stored separately from job | `ImportPayload` entity | [ADR-004](docs/adrs/004-raw-payload-persistence.md) |
+| Transient vs. permanent error classification | `IExceptionClassifier` | [ADR-005](docs/adrs/005-error-classification-transient-vs-permanent.md) |
+| Strict status model with enforced transitions | `ImportJobWorkflow` | [ADR-006](docs/adrs/006-status-model-design.md) |
+| Stale-lock recovery for orphaned outbox entries | `OutboxRepository.RecoverStaleAsync` | [ADR-012](docs/adrs/012-stale-outbox-lock-recovery.md) |
+
+All 12 ADRs are in [`docs/adrs/`](docs/adrs/).
+
+---
+
+## Tech stack
+
+| Concern | Technology |
+|---|---|
+| Runtime | .NET 10 (SDK 10.0.102) |
+| API | ASP.NET Core Minimal API |
+| ORM | EF Core 10, Npgsql |
+| Background jobs | .NET Worker Host (`BackgroundService`) |
+| Logging | Serilog (structured, console sink) |
+| Tracing | OpenTelemetry (`ActivitySource` per pipeline step) |
+| Testing | xUnit, FluentAssertions, Testcontainers |
+| API docs | OpenAPI 3.1 (`/scalar`) |
+| Containers | Docker, Docker Compose |
+
+---
+
+## Quick start
+
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) and [Docker](https://docs.docker.com/get-docker/)
 
 ```bash
 docker compose up
 ```
 
-The API will be available at `http://localhost:5000`. OpenAPI documentation is served via Scalar at `/scalar`.
+| Endpoint | URL |
+|---|---|
+| API | http://localhost:8200 |
+| Interactive API docs | http://localhost:8200/scalar |
+| API health | http://localhost:8200/health |
+| Worker health | http://localhost:8201/health |
 
-### Run tests
+---
+
+## API endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/imports` | Upload file and create job |
+| `GET` | `/api/imports` | List jobs (filterable by status) |
+| `GET` | `/api/imports/{id}` | Job detail with current status |
+| `GET` | `/api/imports/{id}/history` | Full audit trail |
+| `POST` | `/api/imports/{id}/requeue` | Manually retry a failed job |
+| `GET` | `/api/metrics/jobs` | Job counts by status |
+| `GET` | `/api/metrics/processing` | Average duration and success rate |
+
+---
+
+## Testing
+
+| Project | Scope | Approach |
+|---|---|---|
+| `Tests.Unit` | Parsers, validators, state machine, retry policy | Pure unit tests, no I/O |
+| `Tests.Integration` | Full pipeline, fault injection, stale-lock recovery | Testcontainers (real PostgreSQL) |
+| `Tests.Architecture` | Layer dependency rules | NetArchTest |
 
 ```bash
-dotnet test
+dotnet test Ingestor.slnx -c Release
 ```
 
-Integration tests require Docker (Testcontainers will start a PostgreSQL instance automatically).
-
-## API Overview
-
-| Method | Endpoint                     | Description                  |
-|--------|------------------------------|------------------------------|
-| POST   | `/api/imports`               | Upload file and create job   |
-| GET    | `/api/imports`               | List jobs (filterable)       |
-| GET    | `/api/imports/{id}`          | Job detail with status       |
-| GET    | `/api/imports/{id}/history`  | Full audit trail             |
-| POST   | `/api/imports/{id}/requeue`  | Manually retry failed job    |
-| GET    | `/health`                    | Health check                 |
+---
 
 ## Documentation
 
-- [Scope V1](docs/en/scope-v1-en.md)
+- [Project scope](docs/en/scope-v1-en.md)
 - [Architecture Decision Records](docs/adrs/)
-- [Runbook](docs/runbook.md)
+- [Operational runbook](docs/runbook.md)
+
+---
 
 ## License
 

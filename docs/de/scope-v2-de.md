@@ -108,11 +108,11 @@ Alle bestehenden Status und Übergänge aus V1 bleiben unverändert.
 
 ## Technischer Stack — Ergänzungen zu V1
 
-| Komponente     | Zweck                              |
-|----------------|------------------------------------|
-| RabbitMQ 3.x   | Message Broker (optional)          |
-| RabbitMQ.Client | .NET Client Library               |
-| BenchmarkDotNet | Throughput-Vergleich              |
+| Komponente      | Zweck                                 |
+|-----------------|---------------------------------------|
+| RabbitMQ 3.x    | Message Broker (optional)             |
+| RabbitMQ.Client | .NET Client Library                   |
+| BenchmarkDotNet | Throughput-Vergleich                  |
 | Docker Compose  | Erweitert um RabbitMQ + Management UI |
 
 ---
@@ -176,17 +176,7 @@ Alle bestehenden Status und Übergänge aus V1 bleiben unverändert.
 
 | #   | Thema                                              |
 |-----|----------------------------------------------------|
-| 007 | Dispatcher-Abstraktion und Config-Switch-Strategie |
-| 008 | RabbitMQ-Integration: Scope und Abgrenzung         |
-| 009 | DB-Queue vs. RabbitMQ — Benchmark-Ergebnisse       |
-| 010 | Batch-Import: Chunk-Strategie und Teilfehler       |
-
----
-
-## Was das Portfolio danach erzählt
-
-V1 sagt: "Ich kann ein zuverlässiges Backend-System bauen."
-
-V2 sagt: "Ich kann technische Alternativen evaluieren, mit echten Zahlen vergleichen und die Entscheidung dokumentieren."
-
-Das ist genau der Unterschied zwischen "Ich kenne RabbitMQ" und "Ich weiß, wann sich RabbitMQ lohnt und wann nicht."
+| 013 | Dispatcher-Abstraktion und Config-Switch-Strategie |
+| 014 | RabbitMQ-Integration: Scope und Abgrenzung         |
+| 015 | DB-Queue vs. RabbitMQ — Benchmark-Ergebnisse       |
+| 016 | Batch-Import: Chunk-Strategie und Teilfehler       |

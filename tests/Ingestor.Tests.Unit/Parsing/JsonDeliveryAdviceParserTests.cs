@@ -118,4 +118,38 @@ public sealed class JsonDeliveryAdviceParserTests
         result.Errors.Should().HaveCount(3);
         result.Errors.Select(e => e.Field).Should().Contain(["ArticleNumber", "ProductName", "SupplierRef"]);
     }
+
+    [Fact]
+    public void Parse_DateOnlyExpectedDate_ParsedAsUtcMidnight()
+    {
+        var json = """
+            [
+              { "articleNumber": "ART-001", "productName": "Oak Dining Table", "quantity": 10, "expectedDate": "2026-04-01", "supplierRef": "SUP-42" }
+            ]
+            """;
+
+        var result = _sut.Parse(ToStream(json));
+
+        result.IsSuccess.Should().BeTrue();
+        var expectedDate = result.Lines[0].ExpectedDate;
+        expectedDate.Offset.Should().Be(TimeSpan.Zero);
+        expectedDate.Should().Be(new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Parse_ExpectedDateWithExplicitOffset_ConvertedToUtc()
+    {
+        var json = """
+            [
+              { "articleNumber": "ART-001", "productName": "Oak Dining Table", "quantity": 10, "expectedDate": "2026-04-01T00:00:00+02:00", "supplierRef": "SUP-42" }
+            ]
+            """;
+
+        var result = _sut.Parse(ToStream(json));
+
+        result.IsSuccess.Should().BeTrue();
+        var expectedDate = result.Lines[0].ExpectedDate;
+        expectedDate.Offset.Should().Be(TimeSpan.Zero);
+        expectedDate.Should().Be(new DateTimeOffset(2026, 3, 31, 22, 0, 0, TimeSpan.Zero));
+    }
 }

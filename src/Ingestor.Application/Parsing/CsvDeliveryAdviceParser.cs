@@ -119,8 +119,10 @@ public sealed class CsvDeliveryAdviceParser : IDeliveryAdviceParser
         DateTimeOffset expectedDate = default;
         if (string.IsNullOrWhiteSpace(expectedDateRaw))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"{DeliveryAdviceFields.ExpectedDate} is required"));
-        else if (!DateTimeOffset.TryParse(expectedDateRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out expectedDate))
+        else if (!DateTimeOffset.TryParse(expectedDateRaw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out expectedDate))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"Value '{expectedDateRaw}' is not a valid date"));
+        else
+            expectedDate = expectedDate.ToUniversalTime();
 
         if (string.IsNullOrWhiteSpace(supplierRef))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.SupplierRef, $"{DeliveryAdviceFields.SupplierRef} is required"));

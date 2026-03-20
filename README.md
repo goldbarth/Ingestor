@@ -169,9 +169,24 @@ dotnet test Ingestor.slnx -c Release
 
 ---
 
+## V2 Roadmap
+
+| Milestone | Focus | Issues |
+|---|---|---|
+| **M6** | Dispatcher abstraction — `IJobDispatcher` interface + config-switch | #43–#46 |
+| **M7** | RabbitMQ integration — broker, consumer, dead-letter exchange | #47–#53 |
+| **M8** | Benchmark — DB queue vs. RabbitMQ, BenchmarkDotNet, ADR with real numbers | #54–#56 |
+| **M9** | Batch import — chunk processing, progress tracking, partial success | #57–#62 |
+| **M10** | V2 documentation — README, runbook, CHANGELOG | #63–#65 |
+
+Full V2 scope: [docs/en/scope-v2-en.md](docs/en/scope-v2-en.md)
+
+---
+
 ## Documentation
 
-- [Project scope](docs/en/scope-v1-en.md)
+- [V1 scope](docs/en/scope-v1-en.md)
+- [V2 scope](docs/en/scope-v2-en.md)
 - [Architecture Decision Records](docs/adrs/)
 - [Operational runbook](docs/runbook.md)
 

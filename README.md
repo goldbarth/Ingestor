@@ -1,6 +1,7 @@
 # Ingestor — Fleetholm Logistics
 
 <p>
+  <img src="https://img.shields.io/github/v/release/goldbarth/Ingestor"/>
   <a href="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml">
     <img src="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>

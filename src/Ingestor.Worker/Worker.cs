@@ -51,6 +51,12 @@ public sealed class Worker(
 
         var auditEventRepository = scope.ServiceProvider.GetRequiredService<IAuditEventRepository>();
 
+        var recovered = await outboxRepository.RecoverStaleAsync(
+            TimeSpan.FromSeconds(options.Value.StaleLockTimeoutSeconds), ct);
+        if (recovered > 0)
+            logger.LogInformation("Recovered {Count} stale outbox entr{Suffix}.",
+                recovered, recovered == 1 ? "y" : "ies");
+
         var entry = await outboxRepository.ClaimNextAsync(ct);
         if (entry is null)
             return;

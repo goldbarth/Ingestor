@@ -85,4 +85,54 @@ public sealed class DbOutageIntegrationTests(FaultInjectablePostgreSqlFixture fi
             "this documents the known architectural gap: without a stale-lock timeout, " +
             "a worker crash after claim leaves the entry non-recoverable");
     }
+
+    [Fact]
+    public async Task StaleOutboxEntry_AfterDbTimeoutDuringPipeline_IsRecoveredToPendingAndReprocessed()
+    {
+        // Arrange: create job and successfully claim its outbox entry
+        var jobId = await CreateJobAsync("SUP-STALE");
+
+        await using var claimScope = fixture.Services.CreateAsyncScope();
+        var claimedEntry = await claimScope.ServiceProvider
+            .GetRequiredService<IOutboxRepository>()
+            .ClaimNextAsync();
+        claimedEntry.Should().NotBeNull();
+
+        // Simulate a DB timeout during the pipeline → entry is now stuck in Processing
+        fixture.FaultInterceptor.ShouldFail = true;
+        await using var pipelineScope = fixture.Services.CreateAsyncScope();
+        var act = () => pipelineScope.ServiceProvider
+            .GetRequiredService<ImportPipelineHandler>()
+            .HandleAsync(jobId);
+        await act.Should().ThrowAsync<TimeoutException>();
+
+        // Act: recover stale entries — timeout=0 means any Processing entry qualifies immediately
+        await using var recoverScope = fixture.Services.CreateAsyncScope();
+        var recovered = await recoverScope.ServiceProvider
+            .GetRequiredService<IOutboxRepository>()
+            .RecoverStaleAsync(TimeSpan.Zero);
+
+        // Assert: at least our entry was recovered (shared fixture may have other stale entries)
+        recovered.Should().BeGreaterThanOrEqualTo(1);
+
+        await using var checkScope = fixture.Services.CreateAsyncScope();
+        var db = checkScope.ServiceProvider.GetRequiredService<IngestorDbContext>();
+        var entry = await db.OutboxEntries.FirstAsync(e => e.JobId == jobId);
+        entry.Status.Should().Be(OutboxStatus.Pending, "recovery must reset the status to Pending");
+        entry.LockedAt.Should().BeNull("recovery must clear the stale lock timestamp");
+
+        // Act: process the recovered job — no fault injected
+        await using var reprocessScope = fixture.Services.CreateAsyncScope();
+        var result = await reprocessScope.ServiceProvider
+            .GetRequiredService<ImportPipelineHandler>()
+            .HandleAsync(jobId);
+        result.IsSuccess.Should().BeTrue();
+
+        // Assert: job completed successfully end-to-end
+        await using var finalScope = fixture.Services.CreateAsyncScope();
+        var finalJob = await finalScope.ServiceProvider
+            .GetRequiredService<IImportJobRepository>()
+            .GetByIdAsync(jobId);
+        finalJob!.Status.Should().Be(JobStatus.Succeeded);
+    }
 }

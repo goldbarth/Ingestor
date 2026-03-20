@@ -56,4 +56,19 @@ internal sealed class OutboxRepository(IngestorDbContext dbContext, IClock clock
         entry.Complete(clock.UtcNow);
         await dbContext.SaveChangesAsync(ct);
     }
+    
+    public async Task<int> RecoverStaleAsync(TimeSpan timeout, CancellationToken ct = default)
+    {
+        return await dbContext.Database.ExecuteSqlAsync(
+            $"""
+            UPDATE outbox_entries
+            SET "Status" = 'Pending', "LockedAt" = NULL
+            WHERE "Id" IN (
+                SELECT "Id" FROM outbox_entries
+                WHERE "Status" = 'Processing'
+                  AND "LockedAt" < NOW() - {timeout}
+                FOR UPDATE SKIP LOCKED
+            )
+            """, ct);
+    }
 }

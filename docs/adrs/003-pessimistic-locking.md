@@ -57,7 +57,7 @@ A composite index on `(Status, CreatedAt)` supports the `WHERE` filter and `ORDE
 
 - **Strict FIFO ordering is not guaranteed** — `SKIP LOCKED` skips locked rows. If Worker A holds a lock on the oldest entry, Worker B will claim the second-oldest. Worker B may complete before Worker A, breaking arrival-time ordering across concurrent workers. For independent import jobs, this is acceptable.
 - **PostgreSQL-specific syntax** — `FOR UPDATE SKIP LOCKED` is a PostgreSQL extension (also available in Oracle and MySQL 8.0+, but not in all RDBMS). Migrating to a different database would require this query to be rewritten.
-- **`Processing` rows require a recovery mechanism** — if a worker crashes after claiming an entry (status set to `Processing`) but before completing it (status set to `Done`), the entry remains stuck in `Processing` indefinitely. A watchdog or timeout-based recovery job is needed to re-queue such orphaned entries. This is not implemented in V1.
+- **`Processing` rows require a recovery mechanism** — if a worker crashes after claiming an entry (status set to `Processing`) but before completing it (status set to `Done`), the entry remains stuck in `Processing` indefinitely. This gap is addressed by the timeout-based stale-lock recovery described in ADR-012.
 
 ### Why not optimistic locking?
 

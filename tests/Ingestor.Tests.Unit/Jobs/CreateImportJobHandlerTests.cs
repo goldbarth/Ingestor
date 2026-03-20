@@ -66,6 +66,11 @@ public sealed class CreateImportJobHandlerTests
 
         public Task MarkAsDoneAsync(OutboxEntryId id, CancellationToken ct = default)
             => throw new NotImplementedException();
+
+        public Task<int> RecoverStaleAsync(TimeSpan timeout, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork

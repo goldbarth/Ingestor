@@ -163,4 +163,36 @@ public sealed class CsvDeliveryAdviceParserTests
         result.Lines.Should().ContainSingle()
             .Which.ArticleNumber.Should().Be("ART-001");
     }
+
+    [Fact]
+    public void Parse_DateOnlyExpectedDate_ParsedAsUtcMidnight()
+    {
+        var csv = """
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef
+            ART-001,Oak Dining Table,10,2026-04-01,SUP-42
+            """;
+
+        var result = _sut.Parse(ToStream(csv));
+
+        result.IsSuccess.Should().BeTrue();
+        var expectedDate = result.Lines[0].ExpectedDate;
+        expectedDate.Offset.Should().Be(TimeSpan.Zero);
+        expectedDate.Should().Be(new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public void Parse_ExpectedDateWithExplicitOffset_ConvertedToUtc()
+    {
+        var csv = """
+            ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef
+            ART-001,Oak Dining Table,10,2026-04-01T00:00:00+02:00,SUP-42
+            """;
+
+        var result = _sut.Parse(ToStream(csv));
+
+        result.IsSuccess.Should().BeTrue();
+        var expectedDate = result.Lines[0].ExpectedDate;
+        expectedDate.Offset.Should().Be(TimeSpan.Zero);
+        expectedDate.Should().Be(new DateTimeOffset(2026, 3, 31, 22, 0, 0, TimeSpan.Zero));
+    }
 }

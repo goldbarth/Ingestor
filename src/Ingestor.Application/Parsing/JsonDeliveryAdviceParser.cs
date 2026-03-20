@@ -77,8 +77,10 @@ public sealed class JsonDeliveryAdviceParser : IDeliveryAdviceParser
         DateTimeOffset expectedDate = default;
         if (string.IsNullOrWhiteSpace(dto.ExpectedDate))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"{DeliveryAdviceFields.ExpectedDate} is required"));
-        else if (!DateTimeOffset.TryParse(dto.ExpectedDate, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out expectedDate))
+        else if (!DateTimeOffset.TryParse(dto.ExpectedDate, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out expectedDate))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.ExpectedDate, $"Value '{dto.ExpectedDate}' is not a valid date"));
+        else
+            expectedDate = expectedDate.ToUniversalTime();
 
         if (string.IsNullOrWhiteSpace(dto.SupplierRef))
             errors.Add(new ParseError(lineNumber, DeliveryAdviceFields.SupplierRef, $"{DeliveryAdviceFields.SupplierRef} is required"));

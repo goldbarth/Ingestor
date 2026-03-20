@@ -10,13 +10,13 @@ The real value of V2 is not in claiming that RabbitMQ is "better," but in backin
 
 ## What V2 Adds on Top of V1
 
-| Area | V1 | V2 |
-|---|---|---|
-| Job dispatch | DB queue (Outbox + polling) | DB queue **or** RabbitMQ (config switch) |
-| Abstraction | Directly coupled to `OutboxEntry` | `IJobDispatcher` interface |
-| Performance evidence | — | BenchmarkDotNet: DB vs. RabbitMQ |
-| Batch processing | One file = one job | One file with 10,000+ lines = batch job |
-| Infrastructure | PostgreSQL + API + Worker | + RabbitMQ (optional via Docker Compose) |
+| Area                 | V1                                | V2                                       |
+|----------------------|-----------------------------------|------------------------------------------|
+| Job dispatch         | DB queue (Outbox + polling)       | DB queue **or** RabbitMQ (config switch) |
+| Abstraction          | Directly coupled to `OutboxEntry` | `IJobDispatcher` interface               |
+| Performance evidence | —                                 | BenchmarkDotNet: DB vs. RabbitMQ         |
+| Batch processing     | One file = one job                | One file with 10,000+ lines = batch job  |
+| Infrastructure       | PostgreSQL + API + Worker         | + RabbitMQ (optional via Docker Compose) |
 
 ---
 
@@ -94,13 +94,13 @@ All existing V1 states and transitions stay unchanged.
 
 ### `ImportJob` — New Fields
 
-| Field | Type | Description |
-|---|---|---|
-| `TotalLines` | `int?` | Total number of rows (batch only) |
-| `ProcessedLines` | `int?` | Number of rows processed so far |
-| `FailedLines` | `int?` | Number of failed rows |
-| `IsBatch` | `bool` | Marks the job as a batch import |
-| `ChunkSize` | `int?` | Configured chunk size |
+| Field            | Type   | Description                       |
+|------------------|--------|-----------------------------------|
+| `TotalLines`     | `int?` | Total number of rows (batch only) |
+| `ProcessedLines` | `int?` | Number of rows processed so far   |
+| `FailedLines`    | `int?` | Number of failed rows             |
+| `IsBatch`        | `bool` | Marks the job as a batch import   |
+| `ChunkSize`      | `int?` | Configured chunk size             |
 
 > Nullable because existing single-file imports do not use these fields.
 
@@ -108,12 +108,12 @@ All existing V1 states and transitions stay unchanged.
 
 ## Tech Stack Additions on Top of V1
 
-| Component | Purpose |
-|---|---|
-| RabbitMQ 3.x | Message broker (optional) |
-| RabbitMQ.Client | .NET client library |
-| BenchmarkDotNet | Throughput comparison |
-| Docker Compose | Extended with RabbitMQ + Management UI |
+| Component       | Purpose                                |
+|-----------------|----------------------------------------|
+| RabbitMQ 3.x    | Message broker (optional)              |
+| RabbitMQ.Client | .NET client library                    |
+| BenchmarkDotNet | Throughput comparison                  |
+| Docker Compose  | Extended with RabbitMQ + Management UI |
 
 ---
 
@@ -174,19 +174,9 @@ All existing V1 states and transitions stay unchanged.
 
 ## Documentation (Planned ADRs)
 
-| # | Topic |
-|---|---|
-| 007 | Dispatcher abstraction and config-switch strategy |
-| 008 | RabbitMQ integration: scope and boundaries |
-| 009 | DB queue vs. RabbitMQ — benchmark results |
-| 010 | Batch import: chunking strategy and partial failures |
-
----
-
-## What the Portfolio Tells Afterwards
-
-V1 says: *"I can build a reliable backend system."*
-
-V2 says: *"I can evaluate technical alternatives, compare them with real numbers, and document the decision."*
-
-That is exactly the difference between *"I know RabbitMQ"* and *"I know when RabbitMQ is worth it — and when it is not."*
+| #   | Topic                                                |
+|-----|------------------------------------------------------|
+| 013 | Dispatcher abstraction and config-switch strategy    |
+| 014 | RabbitMQ integration: scope and boundaries           |
+| 015 | DB queue vs. RabbitMQ — benchmark results            |
+| 016 | Batch import: chunking strategy and partial failures |

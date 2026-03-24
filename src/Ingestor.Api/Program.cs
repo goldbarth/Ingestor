@@ -20,7 +20,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IngestorDbContext>("database");
@@ -31,6 +31,14 @@ builder.Services.AddOpenTelemetry()
         .AddConsoleExporter());
 
 var app = builder.Build();
+
+var rawStrategy = app.Configuration["Dispatch:Strategy"];
+if (!string.IsNullOrWhiteSpace(rawStrategy)
+    && !rawStrategy.Equals("Database", StringComparison.OrdinalIgnoreCase)
+    && !rawStrategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning("Dispatch:Strategy '{Strategy}' is unknown. Falling back to 'Database'.", rawStrategy);
+}
 
 using (var scope = app.Services.CreateScope())
 {

@@ -31,6 +31,7 @@ public static class InfrastructureServiceExtensions
             services.AddSingleton<RabbitMqConnectionManager>();
             services.AddSingleton<RabbitMqDeliveryTagStore>();
             services.AddScoped<IJobDispatcher, RabbitMqJobDispatcher>();
+            services.AddHostedService<RabbitMqWorker>();
         }
         else
             services.AddScoped<IJobDispatcher, DatabaseJobDispatcher>();

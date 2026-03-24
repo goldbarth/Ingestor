@@ -40,6 +40,7 @@ public sealed class Worker(
     private async Task ProcessNextAsync(CancellationToken ct)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
+        var jobDispatcher = scope.ServiceProvider.GetRequiredService<IJobDispatcher>();
         var outboxRepository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var jobRepository = scope.ServiceProvider.GetRequiredService<IImportJobRepository>();
         var attemptRepository = scope.ServiceProvider.GetRequiredService<IImportAttemptRepository>();
@@ -60,6 +61,10 @@ public sealed class Worker(
         var entry = await outboxRepository.ClaimNextAsync(ct);
         if (entry is null)
             return;
+        
+        var job = await jobRepository.GetByIdAsync(entry.JobId, ct);
+        if (job is null)
+            return;
 
         using var jobIdContext = LogContext.PushProperty("JobId", entry.JobId.Value);
 
@@ -78,9 +83,10 @@ public sealed class Worker(
                 : ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
                     entry.AttemptNumber, startedAt, finishedAt,
                     ErrorCategory.Permanent, result.ErrorCode!, result.ErrorMessage!);
+            
 
             await attemptRepository.AddAsync(attempt, ct);
-            await outboxRepository.MarkAsDoneAsync(entry.Id, ct);
+            await jobDispatcher.AcknowledgeAsync(job, ct);
             await unitOfWork.SaveChangesAsync(ct);
 
             if (result.IsSuccess)
@@ -96,10 +102,6 @@ public sealed class Worker(
 
             logger.LogError(ex, "Job {JobId} failed with {Category} error.", entry.JobId.Value, category);
 
-            var job = await jobRepository.GetByIdAsync(entry.JobId, ct);
-            if (job is null)
-                return;
-
             job.RecordFailure(errorCode, ex.Message);
 
             var attempt = ImportAttempt.Failed(ImportAttemptId.New(), entry.JobId,
@@ -112,23 +114,18 @@ public sealed class Worker(
 
             if (category == ErrorCategory.Transient && job.CurrentAttempt < job.MaxAttempts)
             {
-                var delay = RetryPolicy.CalculateDelay(job.CurrentAttempt);
-                var retryEntry = new OutboxEntry(
-                    OutboxEntryId.New(), job.Id, finishedAt,
-                    attemptNumber: job.CurrentAttempt + 1,
-                    scheduledFor: finishedAt.Add(delay));
-
                 job.TransitionTo(JobStatus.ProcessingFailed, finishedAt);
                 await auditEventRepository.AddAsync(new AuditEvent(
                     AuditEventId.New(), job.Id, preTransitionStatus, JobStatus.ProcessingFailed,
                     AuditEventTrigger.Worker, finishedAt, ex.Message), ct);
-                await outboxRepository.AddAsync(retryEntry, ct);
-
-                logger.LogInformation("Job {JobId} scheduled for retry in {Delay}s (attempt {Attempt}/{Max}).",
-                    job.Id.Value, delay.TotalSeconds, job.CurrentAttempt, job.MaxAttempts);
+                await jobDispatcher.DispatchAsync(job, ct);
+                logger.LogInformation("Job {JobId} scheduled for retry.",
+                    job.Id.Value);
             }
             else
             {
+                logger.LogInformation("Job {JobId} failed after {Attempts} attempts.",
+                    job.Id.Value, job.CurrentAttempt);
                 var deadLetterEntry = DeadLetterEntry.From(DeadLetterEntryId.New(), job, finishedAt);
                 await deadLetterRepository.AddAsync(deadLetterEntry, ct);
                 job.TransitionTo(JobStatus.DeadLettered, finishedAt);
@@ -141,7 +138,7 @@ public sealed class Worker(
                     job.Id.Value, category, job.CurrentAttempt, job.MaxAttempts);
             }
 
-            await outboxRepository.MarkAsDoneAsync(entry.Id, ct);
+            await jobDispatcher.AcknowledgeAsync(job, ct);
             await unitOfWork.SaveChangesAsync(ct);
         }
     }

@@ -381,7 +381,8 @@
           "Ingestor.Domain": "[1.0.0, )",
           "Microsoft.EntityFrameworkCore": "[10.0.4, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.1, )",
-          "RabbitMQ.Client": "[7.2.1, )"
+          "RabbitMQ.Client": "[7.2.1, )",
+          "Serilog": "[4.2.0, )"
         }
       }
     }

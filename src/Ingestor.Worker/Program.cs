@@ -24,9 +24,14 @@ builder.Services.AddOpenTelemetry()
         .AddSource(IngestorActivitySource.Name)
         .AddConsoleExporter());
 
-builder.Services.Configure<WorkerOptions>(builder.Configuration.GetSection(WorkerOptions.SectionName));
 builder.Services.AddSingleton<WorkerHeartbeat>();
-builder.Services.AddHostedService<Worker>();
+
+var dispatchStrategy = builder.Configuration["Dispatch:Strategy"] ?? "Database";
+if (!dispatchStrategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.Configure<WorkerOptions>(builder.Configuration.GetSection(WorkerOptions.SectionName));
+    builder.Services.AddHostedService<Worker>();
+}
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<IngestorDbContext>("database")

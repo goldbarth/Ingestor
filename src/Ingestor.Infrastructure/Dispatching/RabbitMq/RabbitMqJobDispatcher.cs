@@ -32,8 +32,8 @@ internal sealed class RabbitMqJobDispatcher(
         if (!deliveryTagStore.TryRemove(job.Id, out var deliveryTag))
             return;
         
-        var channel = await connectionManager.GetPublishChannelAsync(ct);
-        
+        var channel = await connectionManager.GetConsumerChannelAsync(ct);
+
         await channel.BasicAckAsync(deliveryTag, multiple: false, cancellationToken: ct);
     }
 }

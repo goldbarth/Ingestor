@@ -2,6 +2,7 @@ using Ingestor.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Ingestor.Infrastructure.Dispatching;
+using Ingestor.Infrastructure.Dispatching.RabbitMq;
 using Microsoft.Extensions.Configuration;
 
 namespace Ingestor.Infrastructure.Persistence;
@@ -24,7 +25,12 @@ public static class InfrastructureServiceExtensions
         
         if (strategy.Equals(nameof(DispatchStrategy.RabbitMQ), StringComparison.OrdinalIgnoreCase))
         {
-            //TODO: will be implemented in M7
+            var rabbitMqOptions = new RabbitMqOptions();
+            configuration.GetSection(RabbitMqOptions.SectionName).Bind(rabbitMqOptions);
+            services.AddSingleton(rabbitMqOptions);
+            services.AddSingleton<RabbitMqConnectionManager>();
+            services.AddSingleton<RabbitMqDeliveryTagStore>();
+            services.AddScoped<IJobDispatcher, RabbitMqJobDispatcher>();
         }
         else
             services.AddScoped<IJobDispatcher, DatabaseJobDispatcher>();

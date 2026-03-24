@@ -7,7 +7,7 @@ namespace Ingestor.Application.Jobs.CreateImportJob;
 
 public sealed class CreateImportJobHandler(
     IImportJobRepository jobRepository,
-    IOutboxRepository outboxRepository,
+    IJobDispatcher jobDispatcher,
     IUnitOfWork unitOfWork)
 {
     private const int MaxPayloadSizeBytes = 10 * 1024 * 1024;
@@ -51,14 +51,8 @@ public sealed class CreateImportJobHandler(
             now,
             maxAttempts: 3);
 
-        var outboxEntry = new OutboxEntry(
-            OutboxEntryId.New(),
-            jobId,
-            now,
-            attemptNumber: 1);
-
         await jobRepository.AddAsync(job, payload, ct);
-        await outboxRepository.AddAsync(outboxEntry, ct);
+        await jobDispatcher.DispatchAsync(job, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return Result<CreateImportJobResult>.Success(new(jobId, IsNew: true));

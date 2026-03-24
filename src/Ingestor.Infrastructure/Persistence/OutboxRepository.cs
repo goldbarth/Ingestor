@@ -56,7 +56,19 @@ internal sealed class OutboxRepository(IngestorDbContext dbContext, IClock clock
         entry.Complete(clock.UtcNow);
         await dbContext.SaveChangesAsync(ct);
     }
-    
+
+    public async Task MarkAsDoneByJobAsync(JobId jobId, CancellationToken ct = default)
+    {
+        var entry = await dbContext.OutboxEntries
+            .FirstOrDefaultAsync(e => e.JobId == jobId && e.Status == OutboxStatus.Processing, ct);
+        
+        if (entry is null)
+            return;
+        
+        entry.Complete(clock.UtcNow);
+        await dbContext.SaveChangesAsync(ct);
+    }
+
     public async Task<int> RecoverStaleAsync(TimeSpan timeout, CancellationToken ct = default)
     {
         return await dbContext.Database.ExecuteSqlAsync(

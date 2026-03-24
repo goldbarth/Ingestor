@@ -8,7 +8,7 @@ namespace Ingestor.Application.Jobs.RequeueImportJob;
 
 public sealed class RequeueImportJobHandler(
     IImportJobRepository jobRepository,
-    IOutboxRepository outboxRepository,
+    IJobDispatcher jobDispatcher,
     IAuditEventRepository auditEventRepository,
     IUnitOfWork unitOfWork,
     IClock clock)
@@ -42,9 +42,8 @@ public sealed class RequeueImportJobHandler(
         await auditEventRepository.AddAsync(new AuditEvent(
             AuditEventId.New(), job.Id, oldStatus, JobStatus.Received,
             AuditEventTrigger.Api, now), ct);
-
-        var outboxEntry = new OutboxEntry(OutboxEntryId.New(), job.Id, now, attemptNumber: 1);
-        await outboxRepository.AddAsync(outboxEntry, ct);
+        
+        await jobDispatcher.DispatchAsync(job, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return Result<RequeueImportJobResult>.Success(new RequeueImportJobResult(job.Id.Value));

@@ -1,5 +1,4 @@
-﻿using FluentAssertions;
-using Ingestor.Application.Abstractions;
+﻿using Ingestor.Application.Abstractions;
 using Ingestor.Application.Common;
 using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Domain.Jobs;
@@ -10,13 +9,13 @@ namespace Ingestor.Tests.Unit.Jobs;
 public sealed class CreateImportJobHandlerTests
 {
     private readonly FakeImportJobRepository _jobRepository = new();
-    private readonly FakeOutboxRepository _outboxRepository = new();
+    private readonly FakeDatabaseJobDispatcher _jobDispatcher = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly CreateImportJobHandler _sut;
 
     public CreateImportJobHandlerTests()
     {
-        _sut = new CreateImportJobHandler(_jobRepository, _outboxRepository, _unitOfWork);
+        _sut = new CreateImportJobHandler(_jobRepository, _jobDispatcher, _unitOfWork);
     }
 
     [Fact]
@@ -55,22 +54,14 @@ public sealed class CreateImportJobHandlerTests
         public Task<IReadOnlyDictionary<JobStatus, int>> GetStatusCountsAsync(CancellationToken ct = default)
             => throw new NotImplementedException();
     }
-
-    private sealed class FakeOutboxRepository : IOutboxRepository
+    
+    private sealed class FakeDatabaseJobDispatcher : IJobDispatcher
     {
-        public Task AddAsync(OutboxEntry entry, CancellationToken ct = default)
-            => throw new NotImplementedException();
+        public Task DispatchAsync(ImportJob job, CancellationToken ct = default)
+            => Task.CompletedTask;
 
-        public Task<OutboxEntry?> ClaimNextAsync(CancellationToken ct = default)
-            => throw new NotImplementedException();
-
-        public Task MarkAsDoneAsync(OutboxEntryId id, CancellationToken ct = default)
-            => throw new NotImplementedException();
-
-        public Task<int> RecoverStaleAsync(TimeSpan timeout, CancellationToken ct = default)
-        {
-            throw new NotImplementedException();
-        }
+        public Task AcknowledgeAsync(ImportJob job, CancellationToken ct = default) 
+            => Task.CompletedTask;
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork

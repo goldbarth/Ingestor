@@ -2,6 +2,7 @@ using Ingestor.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Ingestor.Infrastructure;
+using Ingestor.Infrastructure.Dispatching;
 
 namespace Ingestor.Infrastructure.Persistence;
 
@@ -19,6 +20,7 @@ public static class InfrastructureServiceExtensions
         });
 
         services.AddScoped<IImportJobRepository, ImportJobRepository>();
+        services.AddScoped<IJobDispatcher, DatabaseJobDispatcher>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IDeliveryItemRepository, EfDeliveryItemRepository>();
         services.AddScoped<IImportAttemptRepository, EfImportAttemptRepository>();

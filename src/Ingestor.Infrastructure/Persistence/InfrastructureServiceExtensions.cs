@@ -24,7 +24,7 @@ public static class InfrastructureServiceExtensions
         
         if (strategy.Equals(nameof(DispatchStrategy.RabbitMQ), StringComparison.OrdinalIgnoreCase))
         {
-            // will be implemented in M7
+            //TODO: will be implemented in M7
         }
         else
             services.AddScoped<IJobDispatcher, DatabaseJobDispatcher>();

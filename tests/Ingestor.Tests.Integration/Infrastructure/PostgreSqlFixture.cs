@@ -1,6 +1,7 @@
 using Ingestor.Application;
 using Ingestor.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
@@ -23,8 +24,9 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         await _container.StartAsync();
 
         var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build(); 
         services.AddApplication();
-        services.AddInfrastructure(_container.GetConnectionString());
+        services.AddInfrastructure(configuration, _container.GetConnectionString());
         services.AddLogging();
 
         _serviceProvider = services.BuildServiceProvider();

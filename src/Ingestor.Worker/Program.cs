@@ -16,7 +16,7 @@ builder.Services.AddSerilog((_, config) =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(builder.Configuration ,connectionString);
 builder.Services.AddApplication();
 
 builder.Services.AddOpenTelemetry()
@@ -33,6 +33,14 @@ builder.Services.AddHealthChecks()
     .AddCheck<WorkerHeartbeatCheck>("worker-heartbeat");
 
 var app = builder.Build();
+
+var rawStrategy = app.Configuration["Dispatch:Strategy"];
+if (!string.IsNullOrWhiteSpace(rawStrategy)
+    && !rawStrategy.Equals("Database", StringComparison.OrdinalIgnoreCase)
+    && !rawStrategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning("Dispatch:Strategy '{Strategy}' is unknown. Falling back to 'Database'.", rawStrategy);
+}
 
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = WriteJsonResponse });
 

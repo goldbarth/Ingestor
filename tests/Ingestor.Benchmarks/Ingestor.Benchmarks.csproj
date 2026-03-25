@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ingestor.Application\Ingestor.Application.csproj" />
     <ProjectReference Include="..\..\src\Ingestor.Infrastructure\Ingestor.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Ingestor.Worker\Ingestor.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

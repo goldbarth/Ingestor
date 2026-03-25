@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Pipeline;
 using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
+using Ingestor.Infrastructure.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -84,12 +86,22 @@ internal sealed class RabbitMqWorker(
 
         if (message is null)
         {
+            using var unreadableActivity = RabbitMqTelemetry.StartConsumerActivity(
+                IngestorMessagingActivitySource.Messaging,
+                args,
+                options);
+            unreadableActivity?.SetStatus(ActivityStatusCode.Error, "Unreadable RabbitMQ message payload.");
             await _channel!.BasicNackAsync(args.DeliveryTag, multiple: false, requeue: false, cancellationToken: ct);
             logger.LogWarning("Discarded unreadable message with delivery tag {Tag}.", args.DeliveryTag);
             return;
         }
 
         var jobId = new JobId(message.JobId);
+        using var activity = RabbitMqTelemetry.StartConsumerActivity(
+            IngestorMessagingActivitySource.Messaging,
+            args,
+            options,
+            jobId.Value);
         deliveryTagStore.Register(jobId, args.DeliveryTag);
 
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -106,6 +118,7 @@ internal sealed class RabbitMqWorker(
         var job = await jobRepository.GetByIdAsync(jobId, ct);
         if (job is null)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "Referenced job was not found.");
             await _channel!.BasicNackAsync(args.DeliveryTag, multiple: false, requeue: false, cancellationToken: ct);
             logger.LogWarning("Job {JobId} not found; discarding message.", jobId.Value);
             return;
@@ -133,9 +146,16 @@ internal sealed class RabbitMqWorker(
             await unitOfWork.SaveChangesAsync(ct);
 
             if (result.IsSuccess)
+            {
+                activity?.SetTag("job.processed_item_count", result.ProcessedItemCount);
                 logger.LogInformation("Job {JobId} succeeded. Items: {Count}.", jobId.Value, result.ProcessedItemCount);
+            }
             else
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, result.ErrorMessage);
+                activity?.SetTag("error.code", result.ErrorCode);
                 logger.LogWarning("Job {JobId} permanently failed: {ErrorCode}.", jobId.Value, result.ErrorCode);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -143,6 +163,8 @@ internal sealed class RabbitMqWorker(
             var category = exceptionClassifier.Classify(ex);
             var errorCode = category == ErrorCategory.Transient ? "worker.transient_error" : "worker.unexpected_error";
 
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.SetTag("error.code", errorCode);
             logger.LogError(ex, "Job {JobId} failed with {Category} error.", jobId.Value, category);
 
             job.RecordFailure(errorCode, ex.Message);

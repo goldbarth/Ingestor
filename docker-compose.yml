@@ -20,7 +20,7 @@ services:
     image: rabbitmq:3-management
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ingestor}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     ports:
       - "5672:5672"
@@ -45,6 +45,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:?CONNECTION_STRING is required}
+      Dispatch__Strategy: RabbitMQ
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__UserName: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 15s
@@ -53,6 +57,8 @@ services:
       start_period: 30s
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   worker:
@@ -66,6 +72,10 @@ services:
       DOTNET_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8081
       ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:?CONNECTION_STRING is required}
+      Dispatch__Strategy: RabbitMQ
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__UserName: ${RABBITMQ_USER:-guest}
+      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
       interval: 15s
@@ -74,6 +84,8 @@ services:
       start_period: 30s
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
 volumes:

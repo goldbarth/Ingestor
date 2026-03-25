@@ -32,7 +32,8 @@ internal static class BenchmarkHostBuilder
         if (!strategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))
         {
             builder.Services.AddSingleton<WorkerNs.WorkerHeartbeat>();
-            builder.Services.Configure<WorkerNs.WorkerOptions>(builder.Configuration.GetSection(WorkerNs.WorkerOptions.SectionName));
+            builder.Services.Configure<WorkerNs.WorkerOptions>(
+                builder.Configuration.GetSection(WorkerNs.WorkerOptions.SectionName));
             builder.Services.AddHostedService<WorkerNs.Worker>();
         }
 

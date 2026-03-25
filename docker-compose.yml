@@ -41,14 +41,18 @@ services:
     restart: unless-stopped
     ports:
       - "8200:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8080
-      ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:?CONNECTION_STRING is required}
-      Dispatch__Strategy: RabbitMQ
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__UserName: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=${CONNECTION_STRING:?CONNECTION_STRING is required}
+      - Dispatch__Strategy=RabbitMQ
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__UserName=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_PROTOCOL
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 15s
@@ -68,14 +72,18 @@ services:
     restart: unless-stopped
     ports:
       - "8201:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DOTNET_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: 8081
-      ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:?CONNECTION_STRING is required}
-      Dispatch__Strategy: RabbitMQ
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__UserName: ${RABBITMQ_USER:-guest}
-      RabbitMQ__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      - DOTNET_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8081
+      - ConnectionStrings__DefaultConnection=${CONNECTION_STRING:?CONNECTION_STRING is required}
+      - Dispatch__Strategy=RabbitMQ
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__UserName=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      - OTEL_EXPORTER_OTLP_ENDPOINT
+      - OTEL_EXPORTER_OTLP_PROTOCOL
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
       interval: 15s

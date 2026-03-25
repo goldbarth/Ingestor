@@ -1,8 +1,8 @@
 using Ingestor.Application.Abstractions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Ingestor.Infrastructure.Dispatching;
 using Ingestor.Infrastructure.Dispatching.RabbitMq;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 
 namespace Ingestor.Infrastructure.Persistence;
@@ -15,9 +15,12 @@ public static class InfrastructureServiceExtensions
         string connectionString,
         Action<DbContextOptionsBuilder>? configureOptions = null)
     {
-        services.AddDbContext<IngestorDbContext>(options =>
+        services.AddSingleton<NpgsqlTracingCommandInterceptor>();
+
+        services.AddDbContext<IngestorDbContext>((serviceProvider, options) =>
         {
             options.UseNpgsql(connectionString);
+            options.AddInterceptors(serviceProvider.GetRequiredService<NpgsqlTracingCommandInterceptor>());
             configureOptions?.Invoke(options);
         });
         

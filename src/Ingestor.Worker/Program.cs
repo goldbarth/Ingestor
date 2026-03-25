@@ -2,9 +2,11 @@ using System.Text.Json;
 using Ingestor.Application;
 using Ingestor.Application.Telemetry;
 using Ingestor.Infrastructure.Persistence;
+using Ingestor.Infrastructure.Telemetry;
 using Ingestor.Worker;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 
@@ -20,9 +22,14 @@ builder.Services.AddInfrastructure(builder.Configuration ,connectionString);
 builder.Services.AddApplication();
 
 builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource =>
+        resource.AddService(builder.Environment.ApplicationName))
     .WithTracing(tracing => tracing
         .AddSource(IngestorActivitySource.Name)
-        .AddConsoleExporter());
+        .AddSource(IngestorDatabaseActivitySource.Name)
+        .AddSource(IngestorMessagingActivitySource.Name)
+        .AddAspNetCoreInstrumentation()
+        .AddOtlpExporter());
 
 builder.Services.AddSingleton<WorkerHeartbeat>();
 

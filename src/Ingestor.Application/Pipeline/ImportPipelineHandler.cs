@@ -32,76 +32,147 @@ public sealed class ImportPipelineHandler(
             return PipelineResult.Failed("pipeline.payload_not_found", $"Payload for job '{jobId.Value}' was not found.");
 
         var jobIdTag = jobId.Value.ToString();
+        var pipelineStarted = Stopwatch.GetTimestamp();
+        var pipelineOutcome = "success";
+        string? pipelineErrorCode = null;
+        var processedItemCount = 0;
 
-        // --- Parsing ---
-        const string pipelineParsing = "pipeline.parsing";
-        using (var parsingActivity = IngestorActivitySource.Pipeline.StartActivity(pipelineParsing))
+        using var pipelineActivity = IngestorActivitySource.Pipeline.StartActivity("pipeline.run");
+        pipelineActivity?.SetTag("job.id", jobIdTag);
+
+        try
         {
-            parsingActivity?.SetTag("job.id", jobIdTag);
+            ParseResult<DeliveryAdviceLine> parseResult = default!;
 
-            var parsingNow = clock.UtcNow;
-            var preParsingStatus = job.Status;
-            job.TransitionTo(JobStatus.Parsing, parsingNow);
-            await auditEventRepository.AddAsync(new AuditEvent(
-                AuditEventId.New(), job.Id, preParsingStatus, JobStatus.Parsing,
-                AuditEventTrigger.Worker, parsingNow), ct);
-            await unitOfWork.SaveChangesAsync(ct);
+            // --- Parsing ---
+            const string pipelineParsing = "pipeline.parsing";
+            var parsingStarted = Stopwatch.GetTimestamp();
+            var parsingOutcome = "success";
 
-            var parser = job.ImportType == ImportType.CsvDeliveryAdvice ? csvParser : jsonParser;
-            var parseResult = parser.Parse(new MemoryStream(payload.RawData));
-
-            if (!parseResult.IsSuccess)
+            using (var parsingActivity = IngestorActivitySource.Pipeline.StartActivity(pipelineParsing))
             {
-                var parseErrorMessage = $"Parsing failed with {parseResult.Errors.Count} error(s).";
-                parsingActivity?.SetStatus(ActivityStatusCode.Error, parseErrorMessage);
-                var parseFailNow = clock.UtcNow;
-                var preParseFailStatus = job.Status;
-                job.RecordPermanentFailure("pipeline.parse_failed", parseErrorMessage);
-                job.TransitionTo(JobStatus.ValidationFailed, parseFailNow);
-                await auditEventRepository.AddAsync(new AuditEvent(
-                    AuditEventId.New(), job.Id, preParseFailStatus, JobStatus.ValidationFailed,
-                    AuditEventTrigger.Worker, parseFailNow, parseErrorMessage), ct);
-                await unitOfWork.SaveChangesAsync(ct);
-                return PipelineResult.Failed("pipeline.parse_failed", parseErrorMessage);
+                parsingActivity?.SetTag("job.id", jobIdTag);
+
+                try
+                {
+                    var parsingNow = clock.UtcNow;
+                    var preParsingStatus = job.Status;
+                    job.TransitionTo(JobStatus.Parsing, parsingNow);
+                    await auditEventRepository.AddAsync(new AuditEvent(
+                        AuditEventId.New(), job.Id, preParsingStatus, JobStatus.Parsing,
+                        AuditEventTrigger.Worker, parsingNow), ct);
+                    await unitOfWork.SaveChangesAsync(ct);
+
+                    var parser = job.ImportType == ImportType.CsvDeliveryAdvice ? csvParser : jsonParser;
+                    parseResult = parser.Parse(new MemoryStream(payload.RawData));
+
+                    if (!parseResult.IsSuccess)
+                    {
+                        parsingOutcome = "error";
+                        pipelineOutcome = "error";
+                        pipelineErrorCode = "pipeline.parse_failed";
+
+                        var parseErrorMessage = $"Parsing failed with {parseResult.Errors.Count} error(s).";
+                        parsingActivity?.SetStatus(ActivityStatusCode.Error, parseErrorMessage);
+                        pipelineActivity?.SetStatus(ActivityStatusCode.Error, parseErrorMessage);
+
+                        var parseFailNow = clock.UtcNow;
+                        var preParseFailStatus = job.Status;
+                        job.RecordPermanentFailure(pipelineErrorCode, parseErrorMessage);
+                        job.TransitionTo(JobStatus.ValidationFailed, parseFailNow);
+                        await auditEventRepository.AddAsync(new AuditEvent(
+                            AuditEventId.New(), job.Id, preParseFailStatus, JobStatus.ValidationFailed,
+                            AuditEventTrigger.Worker, parseFailNow, parseErrorMessage), ct);
+                        await unitOfWork.SaveChangesAsync(ct);
+
+                        return PipelineResult.Failed(pipelineErrorCode, parseErrorMessage);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    parsingOutcome = "exception";
+                    parsingActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    throw;
+                }
+                finally
+                {
+                    IngestorMeter.RecordPipelineStepDuration(
+                        pipelineParsing,
+                        parsingOutcome,
+                        Stopwatch.GetElapsedTime(parsingStarted).TotalMilliseconds);
+                }
             }
 
             // --- Validating ---
             const string pipelineValidating = "pipeline.validating";
+            var validatingStarted = Stopwatch.GetTimestamp();
+            var validatingOutcome = "success";
+
             using (var validatingActivity = IngestorActivitySource.Pipeline.StartActivity(pipelineValidating))
             {
                 validatingActivity?.SetTag("job.id", jobIdTag);
 
-                var validatingNow = clock.UtcNow;
-                var preValidatingStatus = job.Status;
-                job.TransitionTo(JobStatus.Validating, validatingNow);
-                await auditEventRepository.AddAsync(new AuditEvent(
-                    AuditEventId.New(), job.Id, preValidatingStatus, JobStatus.Validating,
-                    AuditEventTrigger.Worker, validatingNow), ct);
-                await unitOfWork.SaveChangesAsync(ct);
-
-                var validationResult = validator.Validate(parseResult.Lines);
-
-                if (!validationResult.IsValid)
+                try
                 {
-                    var validationErrorMessage = $"Validation failed with {validationResult.Errors.Count} error(s).";
-                    validatingActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
-                    var validationFailNow = clock.UtcNow;
-                    var preValidationFailStatus = job.Status;
-                    job.RecordPermanentFailure("pipeline.validation_failed", validationErrorMessage);
-                    job.TransitionTo(JobStatus.ValidationFailed, validationFailNow);
+                    var validatingNow = clock.UtcNow;
+                    var preValidatingStatus = job.Status;
+                    job.TransitionTo(JobStatus.Validating, validatingNow);
                     await auditEventRepository.AddAsync(new AuditEvent(
-                        AuditEventId.New(), job.Id, preValidationFailStatus, JobStatus.ValidationFailed,
-                        AuditEventTrigger.Worker, validationFailNow, validationErrorMessage), ct);
+                        AuditEventId.New(), job.Id, preValidatingStatus, JobStatus.Validating,
+                        AuditEventTrigger.Worker, validatingNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
-                    return PipelineResult.Failed("pipeline.validation_failed", validationErrorMessage);
+
+                    var validationResult = validator.Validate(parseResult.Lines);
+
+                    if (!validationResult.IsValid)
+                    {
+                        validatingOutcome = "error";
+                        pipelineOutcome = "error";
+                        pipelineErrorCode = "pipeline.validation_failed";
+
+                        var validationErrorMessage =
+                            $"Validation failed with {validationResult.Errors.Count} error(s).";
+                        validatingActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
+                        pipelineActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
+
+                        var validationFailNow = clock.UtcNow;
+                        var preValidationFailStatus = job.Status;
+                        job.RecordPermanentFailure(pipelineErrorCode, validationErrorMessage);
+                        job.TransitionTo(JobStatus.ValidationFailed, validationFailNow);
+                        await auditEventRepository.AddAsync(new AuditEvent(
+                            AuditEventId.New(), job.Id, preValidationFailStatus, JobStatus.ValidationFailed,
+                            AuditEventTrigger.Worker, validationFailNow, validationErrorMessage), ct);
+                        await unitOfWork.SaveChangesAsync(ct);
+
+                        return PipelineResult.Failed(pipelineErrorCode, validationErrorMessage);
+                    }
                 }
-
-                // --- Processing ---
-                const string pipelineProcessing = "pipeline.processing";
-                using (var processingActivity = IngestorActivitySource.Pipeline.StartActivity(pipelineProcessing))
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    processingActivity?.SetTag("job.id", jobIdTag);
+                    validatingOutcome = "exception";
+                    validatingActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    throw;
+                }
+                finally
+                {
+                    IngestorMeter.RecordPipelineStepDuration(
+                        pipelineValidating,
+                        validatingOutcome,
+                        Stopwatch.GetElapsedTime(validatingStarted).TotalMilliseconds);
+                }
+            }
 
+            // --- Processing ---
+            const string pipelineProcessing = "pipeline.processing";
+            var processingStarted = Stopwatch.GetTimestamp();
+            var processingOutcome = "success";
+
+            using (var processingActivity = IngestorActivitySource.Pipeline.StartActivity(pipelineProcessing))
+            {
+                processingActivity?.SetTag("job.id", jobIdTag);
+
+                try
+                {
                     var processingNow = clock.UtcNow;
                     var preProcessingStatus = job.Status;
                     job.TransitionTo(JobStatus.Processing, processingNow);
@@ -124,6 +195,7 @@ public sealed class ImportPipelineHandler(
                         .ToList();
 
                     await deliveryItemRepository.AddRangeAsync(items, ct);
+
                     var succeededNow = clock.UtcNow;
                     var preSucceededStatus = job.Status;
                     job.TransitionTo(JobStatus.Succeeded, succeededNow, items.Count);
@@ -132,10 +204,48 @@ public sealed class ImportPipelineHandler(
                         AuditEventTrigger.Worker, succeededNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 
-                    processingActivity?.SetTag("job.processed_item_count", items.Count);
-                    return PipelineResult.Success(items.Count);
+                    processedItemCount = items.Count;
+                    processingActivity?.SetTag("job.processed_item_count", processedItemCount);
+
+                    return PipelineResult.Success(processedItemCount);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    processingOutcome = "exception";
+                    processingActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    throw;
+                }
+                finally
+                {
+                    IngestorMeter.RecordPipelineStepDuration(
+                        pipelineProcessing,
+                        processingOutcome,
+                        Stopwatch.GetElapsedTime(processingStarted).TotalMilliseconds);
                 }
             }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            pipelineOutcome = "exception";
+            pipelineErrorCode ??= "pipeline.unhandled_exception";
+            pipelineActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+        finally
+        {
+            pipelineActivity?.SetTag("job.outcome", pipelineOutcome);
+
+            if (!string.IsNullOrWhiteSpace(pipelineErrorCode))
+                pipelineActivity?.SetTag("error.code", pipelineErrorCode);
+
+            if (processedItemCount > 0)
+                pipelineActivity?.SetTag("job.processed_item_count", processedItemCount);
+
+            IngestorMeter.RecordPipelineRun(
+                pipelineOutcome,
+                Stopwatch.GetElapsedTime(pipelineStarted).TotalMilliseconds,
+                processedItemCount,
+                pipelineErrorCode);
         }
     }
 }

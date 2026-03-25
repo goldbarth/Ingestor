@@ -1,0 +1,11 @@
+<Project>
+
+  <!-- Import root Directory.Build.props, skipping the tests/ layer intentionally. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../../'))" />
+
+  <ItemGroup>
+    <Using Remove="Xunit" />
+    <Using Remove="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

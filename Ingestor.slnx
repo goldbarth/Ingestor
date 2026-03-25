@@ -8,6 +8,7 @@
     <Project Path="src/Ingestor.Worker/Ingestor.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Ingestor.Benchmarks/Ingestor.Benchmarks.csproj" />
     <Project Path="tests/Ingestor.Tests.Architecture/Ingestor.Tests.Architecture.csproj" />
     <Project Path="tests/Ingestor.Tests.Integration/Ingestor.Tests.Integration.csproj" />
     <Project Path="tests/Ingestor.Tests.Unit/Ingestor.Tests.Unit.csproj" />

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using Serilog.Context;
 
 namespace Ingestor.Infrastructure.Dispatching.RabbitMq;
@@ -25,15 +26,25 @@ internal sealed class RabbitMqWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _stoppingToken = stoppingToken;
-        _channel = await connectionManager.GetConsumerChannelAsync(stoppingToken);
-        await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: stoppingToken);
 
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += HandleMessageAsync;
-
-        await _channel.BasicConsumeAsync(queue: options.QueueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
-
-        logger.LogInformation("RabbitMQ worker started, consuming from '{Queue}'.", options.QueueName);
+        while (true)
+        {
+            try
+            {
+                await StartConsumerAsync(stoppingToken);
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (BrokerUnreachableException ex)
+            {
+                logger.LogWarning(ex, "RabbitMQ not reachable. Retrying in {Interval}s.",
+                    options.InitialConnectionRetryIntervalSeconds);
+                await Task.Delay(TimeSpan.FromSeconds(options.InitialConnectionRetryIntervalSeconds), stoppingToken);
+            }
+        }
 
         try
         {
@@ -42,6 +53,19 @@ internal sealed class RabbitMqWorker(
         catch (OperationCanceledException) { }
 
         logger.LogInformation("RabbitMQ worker stopped.");
+    }
+
+    private async Task StartConsumerAsync(CancellationToken ct)
+    {
+        _channel = await connectionManager.GetConsumerChannelAsync(ct);
+        await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false, cancellationToken: ct);
+
+        var consumer = new AsyncEventingBasicConsumer(_channel);
+        consumer.ReceivedAsync += HandleMessageAsync;
+
+        await _channel.BasicConsumeAsync(queue: options.QueueName, autoAck: false, consumer: consumer, cancellationToken: ct);
+
+        logger.LogInformation("RabbitMQ worker started, consuming from '{Queue}'.", options.QueueName);
     }
 
     private async Task HandleMessageAsync(object sender, BasicDeliverEventArgs args)

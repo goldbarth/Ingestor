@@ -2,6 +2,7 @@ using System.Text.Json;
 using Ingestor.Application;
 using Ingestor.Application.Telemetry;
 using Ingestor.Infrastructure.Persistence;
+using Ingestor.Infrastructure.Telemetry;
 using Ingestor.Worker;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -34,6 +35,8 @@ builder.Services.AddOpenTelemetry()
         .AddOtlpExporter())
     .WithTracing(tracing => tracing
         .AddSource(IngestorActivitySource.Name)
+        .AddSource(IngestorDatabaseActivitySource.Name)
+        .AddSource(IngestorMessagingActivitySource.Name)
         .AddAspNetCoreInstrumentation()
         .AddOtlpExporter())
     .WithLogging(logging => logging

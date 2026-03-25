@@ -33,14 +33,7 @@ internal sealed class RabbitMqConnectionManager(RabbitMqOptions options) : IAsyn
                 _connection = await factory.CreateConnectionAsync(ct);
             }
             _publisherChannel = await _connection.CreateChannelAsync(cancellationToken: ct);
-
-            await _publisherChannel.QueueDeclareAsync(
-                queue: options.QueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                cancellationToken: ct);
-            
+            await DeclareTopologyAsync(_publisherChannel, ct);
             return _publisherChannel;
         }
         finally
@@ -73,7 +66,7 @@ internal sealed class RabbitMqConnectionManager(RabbitMqOptions options) : IAsyn
                 _connection = await factory.CreateConnectionAsync(ct);
             }
             _consumerChannel = await _connection.CreateChannelAsync(cancellationToken: ct);
-            
+            await DeclareTopologyAsync(_consumerChannel, ct);
             return _consumerChannel;
         }
         finally
@@ -82,6 +75,37 @@ internal sealed class RabbitMqConnectionManager(RabbitMqOptions options) : IAsyn
         }
     }
     
+    private async Task DeclareTopologyAsync(IChannel channel, CancellationToken ct)
+    {
+        await channel.ExchangeDeclareAsync(
+            exchange: options.DeadLetterExchangeName,
+            type: ExchangeType.Fanout,
+            durable: true,
+            autoDelete: false,
+            cancellationToken: ct);
+
+        await channel.QueueDeclareAsync(
+            queue: options.DeadLetterQueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            cancellationToken: ct);
+
+        await channel.QueueBindAsync(
+            queue: options.DeadLetterQueueName,
+            exchange: options.DeadLetterExchangeName,
+            routingKey: string.Empty,
+            cancellationToken: ct);
+
+        await channel.QueueDeclareAsync(
+            queue: options.QueueName,
+            durable: true,
+            exclusive: false,
+            autoDelete: false,
+            arguments: new Dictionary<string, object?> { ["x-dead-letter-exchange"] = options.DeadLetterExchangeName },
+            cancellationToken: ct);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_publisherChannel is not null) await _publisherChannel.DisposeAsync();        

@@ -8,4 +8,7 @@ internal sealed class RabbitMqOptions
     public string UserName { get; init; } = "guest";
     public string Password { get; init; } = "guest";
     public string QueueName { get; init; } = "import-jobs";
+
+    public string DeadLetterExchangeName => $"{QueueName}.dlx";
+    public string DeadLetterQueueName    => $"{QueueName}.dead-letters";
 }

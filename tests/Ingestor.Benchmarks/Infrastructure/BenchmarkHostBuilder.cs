@@ -29,6 +29,13 @@ internal static class BenchmarkHostBuilder
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 
+        if (!strategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Services.AddSingleton<WorkerNs.WorkerHeartbeat>();
+            builder.Services.Configure<WorkerNs.WorkerOptions>(builder.Configuration.GetSection(WorkerNs.WorkerOptions.SectionName));
+            builder.Services.AddHostedService<WorkerNs.Worker>();
+        }
+
         var host = builder.Build();
 
         await using (var scope = host.Services.CreateAsyncScope())

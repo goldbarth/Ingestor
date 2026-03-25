@@ -2,7 +2,11 @@
 @baseUrl = http://localhost:8200
 # Local
 # @baseUrl = http://localhost:5179
-@jobId = 019d05bd-1546-7718-84d8-e9f181640f7f
+
+# Set the desired id to e.g. search
+@jobId = 00000000-0000-0000-0000-000000000000
+# Set the desired status
+# (Received/Parsing/Validating/Processing/Succeeded/ValidationFailed/ProcessingFailed/DeadLettered)
 @status = Succeeded
 
 # ── Imports ──────────────────────────────────────────────────────────────────

@@ -191,6 +191,10 @@ public sealed class ImportPipelineHandler(
 
                     var processedAt = clock.UtcNow;
                     var totalCount = 0;
+                    var isBatch = chunks.Count > 1;
+
+                    if (isBatch)
+                        job.InitializeBatch(parseResult.Lines.Count, batchOptions.Value.ChunkSize);
 
                     foreach (var chunk in chunks)
                     {
@@ -208,6 +212,12 @@ public sealed class ImportPipelineHandler(
 
                         await deliveryItemRepository.AddRangeAsync(chunkItems, ct);
                         totalCount += chunkItems.Count;
+
+                        if (isBatch)
+                        {
+                            job.RecordChunkProcessed(chunkItems.Count);
+                            await unitOfWork.SaveChangesAsync(ct);
+                        }
                     }
 
                     var succeededNow = clock.UtcNow;

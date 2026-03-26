@@ -26,6 +26,11 @@ public sealed class GetImportJobByIdHandler(IImportJobRepository jobRepository)
             job.CurrentAttempt,
             job.MaxAttempts,
             job.LastErrorCode,
-            job.LastErrorMessage));
+            job.LastErrorMessage,
+            job.IsBatch,
+            job.TotalLines,
+            job.ProcessedLines,
+            job.FailedLines,
+            job.ChunkSize));
     }
 }

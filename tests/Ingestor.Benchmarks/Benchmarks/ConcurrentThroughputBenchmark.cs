@@ -13,9 +13,17 @@ namespace Ingestor.Benchmarks.Benchmarks;
 /// <summary>
 /// Scenario 3: 100 jobs with 2 concurrent workers processing in parallel.
 /// Both workers share the same DB and RabbitMQ queue.
+///
+/// NOTE: These benchmarks are designed to run on a physical developer machine,
+/// not in a CI environment or VM. Results reflect real-world conditions
+/// (OS scheduling, NIC latency, disk I/O) and will vary between machines.
+/// This is intentional: a physical machine is the closest approximation to a
+/// production deployment available without a dedicated staging environment.
+/// Do not treat specific numbers as absolutes — the ordering of strategies
+/// and the magnitude of differences are the meaningful signal.
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 1, iterationCount: 3)]
+[SimpleJob(warmupCount: 1, iterationCount: 5)]
 public class ConcurrentThroughputBenchmark
 {
     private const int JobCount = 100;

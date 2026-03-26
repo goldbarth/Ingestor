@@ -13,9 +13,17 @@ namespace Ingestor.Benchmarks.Benchmarks;
 /// <summary>
 /// Scenarios 1 and 2: N jobs dispatched sequentially, one worker processing.
 /// Measures total dispatch-to-completion time and memory allocation.
+///
+/// NOTE: These benchmarks are designed to run on a physical developer machine,
+/// not in a CI environment or VM. Results reflect real-world conditions
+/// (OS scheduling, NIC latency, disk I/O) and will vary between machines.
+/// This is intentional: a physical machine is the closest approximation to a
+/// production deployment available without a dedicated staging environment.
+/// Do not treat specific numbers as absolutes — the ordering of strategies
+/// and the magnitude of differences are the meaningful signal.
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(warmupCount: 1, iterationCount: 3)]
+[SimpleJob(warmupCount: 1, iterationCount: 5)]
 public class DispatchThroughputBenchmark
 {
     [Params("Database", "RabbitMQ")]

@@ -54,6 +54,12 @@ internal sealed class ImportJobConfiguration : IEntityTypeConfiguration<ImportJo
         builder.Property(j => j.LastErrorMessage)
             .HasMaxLength(1000);
 
+        builder.Property(j => j.IsBatch);
+        builder.Property(j => j.TotalLines);
+        builder.Property(j => j.ProcessedLines);
+        builder.Property(j => j.FailedLines);
+        builder.Property(j => j.ChunkSize);
+
         builder.HasIndex(j => j.IdempotencyKey)
             .IsUnique();
 

@@ -19,6 +19,12 @@ public sealed class ImportJob
     public string? LastErrorMessage { get; private set; }
     public int ProcessedItemCount { get; private set; }
 
+    public bool? IsBatch { get; private set; }
+    public int? TotalLines { get; private set; }
+    public int? ProcessedLines { get; private set; }
+    public int? FailedLines { get; private set; }
+    public int? ChunkSize { get; private set; }
+
 #pragma warning disable CS8618
     private ImportJob() {}
 #pragma warning restore CS8618
@@ -49,6 +55,20 @@ public sealed class ImportJob
     {
         LastErrorCode = errorCode;
         LastErrorMessage = errorMessage;
+    }
+
+    public void InitializeBatch(int totalLines, int chunkSize)
+    {
+        IsBatch = true;
+        TotalLines = totalLines;
+        ChunkSize = chunkSize;
+        ProcessedLines = 0;
+        FailedLines = 0;
+    }
+
+    public void RecordChunkProcessed(int count)
+    {
+        ProcessedLines = (ProcessedLines ?? 0) + count;
     }
 
     public void Requeue(DateTimeOffset now)

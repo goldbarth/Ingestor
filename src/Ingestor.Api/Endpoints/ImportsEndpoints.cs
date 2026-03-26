@@ -123,7 +123,12 @@ public static class ImportsEndpoints
             dto.CurrentAttempt,
             dto.MaxAttempts,
             dto.LastErrorCode,
-            dto.LastErrorMessage));
+            dto.LastErrorMessage,
+            dto.IsBatch,
+            dto.TotalLines,
+            dto.ProcessedLines,
+            dto.FailedLines,
+            dto.ChunkSize));
     }
 
     private static async Task<IResult> SearchImportJobsAsync(

@@ -13,4 +13,9 @@ public sealed record ImportJobDetailDto(
     int CurrentAttempt,
     int MaxAttempts,
     string? LastErrorCode,
-    string? LastErrorMessage);
+    string? LastErrorMessage,
+    bool? IsBatch,
+    int? TotalLines,
+    int? ProcessedLines,
+    int? FailedLines,
+    int? ChunkSize);

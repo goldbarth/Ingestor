@@ -8,6 +8,7 @@ using Ingestor.Domain.Jobs.Enums;
 using Ingestor.Domain.Parsing;
 using Ingestor.Domain.Validation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Ingestor.Application.Pipeline;
 
@@ -18,6 +19,7 @@ public sealed class ImportPipelineHandler(
     IUnitOfWork unitOfWork,
     DeliveryAdviceValidator validator,
     IClock clock,
+    IOptions<BatchOptions> batchOptions,
     [FromKeyedServices("csv")] IDeliveryAdviceParser csvParser,
     [FromKeyedServices("json")] IDeliveryAdviceParser jsonParser)
 {
@@ -43,6 +45,7 @@ public sealed class ImportPipelineHandler(
         try
         {
             ParseResult<DeliveryAdviceLine> parseResult = default!;
+            IReadOnlyList<IReadOnlyList<DeliveryAdviceLine>> chunks = [];
 
             // --- Parsing ---
             const string pipelineParsing = "pipeline.parsing";
@@ -87,6 +90,8 @@ public sealed class ImportPipelineHandler(
 
                         return PipelineResult.Failed(pipelineErrorCode, parseErrorMessage);
                     }
+
+                    chunks = LineChunker.Split(parseResult.Lines, batchOptions.Value.ChunkSize);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -122,29 +127,32 @@ public sealed class ImportPipelineHandler(
                         AuditEventTrigger.Worker, validatingNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 
-                    var validationResult = validator.Validate(parseResult.Lines);
-
-                    if (!validationResult.IsValid)
+                    for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
                     {
-                        validatingOutcome = "error";
-                        pipelineOutcome = "error";
-                        pipelineErrorCode = "pipeline.validation_failed";
+                        var validationResult = validator.Validate(chunks[chunkIndex]);
 
-                        var validationErrorMessage =
-                            $"Validation failed with {validationResult.Errors.Count} error(s).";
-                        validatingActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
-                        pipelineActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
+                        if (!validationResult.IsValid)
+                        {
+                            validatingOutcome = "error";
+                            pipelineOutcome = "error";
+                            pipelineErrorCode = "pipeline.validation_failed";
 
-                        var validationFailNow = clock.UtcNow;
-                        var preValidationFailStatus = job.Status;
-                        job.RecordPermanentFailure(pipelineErrorCode, validationErrorMessage);
-                        job.TransitionTo(JobStatus.ValidationFailed, validationFailNow);
-                        await auditEventRepository.AddAsync(new AuditEvent(
-                            AuditEventId.New(), job.Id, preValidationFailStatus, JobStatus.ValidationFailed,
-                            AuditEventTrigger.Worker, validationFailNow, validationErrorMessage), ct);
-                        await unitOfWork.SaveChangesAsync(ct);
+                            var validationErrorMessage =
+                                $"Validation failed in chunk {chunkIndex + 1}/{chunks.Count} with {validationResult.Errors.Count} error(s).";
+                            validatingActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
+                            pipelineActivity?.SetStatus(ActivityStatusCode.Error, validationErrorMessage);
 
-                        return PipelineResult.Failed(pipelineErrorCode, validationErrorMessage);
+                            var validationFailNow = clock.UtcNow;
+                            var preValidationFailStatus = job.Status;
+                            job.RecordPermanentFailure(pipelineErrorCode, validationErrorMessage);
+                            job.TransitionTo(JobStatus.ValidationFailed, validationFailNow);
+                            await auditEventRepository.AddAsync(new AuditEvent(
+                                AuditEventId.New(), job.Id, preValidationFailStatus, JobStatus.ValidationFailed,
+                                AuditEventTrigger.Worker, validationFailNow, validationErrorMessage), ct);
+                            await unitOfWork.SaveChangesAsync(ct);
+
+                            return PipelineResult.Failed(pipelineErrorCode, validationErrorMessage);
+                        }
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -182,29 +190,35 @@ public sealed class ImportPipelineHandler(
                     await unitOfWork.SaveChangesAsync(ct);
 
                     var processedAt = clock.UtcNow;
-                    var items = parseResult.Lines
-                        .Select(line => new DeliveryItem(
-                            DeliveryItemId.New(),
-                            job.Id,
-                            line.ArticleNumber,
-                            line.ProductName,
-                            line.Quantity,
-                            line.ExpectedDate,
-                            line.SupplierRef,
-                            processedAt))
-                        .ToList();
+                    var totalCount = 0;
 
-                    await deliveryItemRepository.AddRangeAsync(items, ct);
+                    foreach (var chunk in chunks)
+                    {
+                        var chunkItems = chunk
+                            .Select(line => new DeliveryItem(
+                                DeliveryItemId.New(),
+                                job.Id,
+                                line.ArticleNumber,
+                                line.ProductName,
+                                line.Quantity,
+                                line.ExpectedDate,
+                                line.SupplierRef,
+                                processedAt))
+                            .ToList();
+
+                        await deliveryItemRepository.AddRangeAsync(chunkItems, ct);
+                        totalCount += chunkItems.Count;
+                    }
 
                     var succeededNow = clock.UtcNow;
                     var preSucceededStatus = job.Status;
-                    job.TransitionTo(JobStatus.Succeeded, succeededNow, items.Count);
+                    job.TransitionTo(JobStatus.Succeeded, succeededNow, totalCount);
                     await auditEventRepository.AddAsync(new AuditEvent(
                         AuditEventId.New(), job.Id, preSucceededStatus, JobStatus.Succeeded,
                         AuditEventTrigger.Worker, succeededNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 
-                    processedItemCount = items.Count;
+                    processedItemCount = totalCount;
                     processingActivity?.SetTag("job.processed_item_count", processedItemCount);
 
                     return PipelineResult.Success(processedItemCount);

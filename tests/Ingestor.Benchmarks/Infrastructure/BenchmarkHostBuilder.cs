@@ -1,4 +1,5 @@
 using Ingestor.Application;
+using Ingestor.Application.Pipeline;
 using Ingestor.Infrastructure.Persistence;
 using WorkerNs = Ingestor.Worker;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ internal static class BenchmarkHostBuilder
                 "Set it via the ConnectionStrings__DefaultConnection environment variable.");
 
         builder.Services.AddApplication();
+        builder.Services.Configure<BatchOptions>(builder.Configuration.GetSection(BatchOptions.SectionName));
         builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 
         if (!strategy.Equals("RabbitMQ", StringComparison.OrdinalIgnoreCase))

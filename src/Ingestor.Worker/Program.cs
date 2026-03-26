@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ingestor.Application;
+using Ingestor.Application.Pipeline;
 using Ingestor.Application.Telemetry;
 using Ingestor.Infrastructure.Persistence;
 using Ingestor.Infrastructure.Telemetry;
@@ -20,8 +21,9 @@ builder.Services.AddSerilog((_, config) =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-builder.Services.AddInfrastructure(builder.Configuration ,connectionString);
+builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 builder.Services.AddApplication();
+builder.Services.Configure<BatchOptions>(builder.Configuration.GetSection(BatchOptions.SectionName));
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource =>

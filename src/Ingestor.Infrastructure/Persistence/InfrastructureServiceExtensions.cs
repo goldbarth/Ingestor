@@ -45,7 +45,9 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IImportAttemptRepository, EfImportAttemptRepository>();
         services.AddScoped<IDeadLetterRepository, EfDeadLetterRepository>();
         services.AddScoped<IAuditEventRepository, EfAuditEventRepository>();
-        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<EfUnitOfWork>();
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<EfUnitOfWork>());
+        services.AddScoped<IAfterSaveCallbackRegistry>(sp => sp.GetRequiredService<EfUnitOfWork>());
         services.AddSingleton<IExceptionClassifier, ExceptionClassifier>();
 
         return services;

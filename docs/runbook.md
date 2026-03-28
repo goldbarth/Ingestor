@@ -6,15 +6,17 @@
 
 ## Quick Reference
 
-| Action                 | Endpoint / Command                          | Notes                                              |
-|------------------------|---------------------------------------------|----------------------------------------------------|
-| Check system health    | `GET /health`                               | Returns `Healthy` / `Unhealthy` + component detail |
-| List failed jobs       | `GET /api/imports?status=DeadLettered`      | Add `&cursor=<id>&pageSize=25` to paginate         |
-| List validation errors | `GET /api/imports?status=ValidationFailed`  | Data problems, no automatic retry                  |
-| Inspect job detail     | `GET /api/imports/{id}`                     | Includes `currentAttempt`, `lastErrorCode`         |
-| View job audit history | `GET /api/imports/{id}/history`             | Chronological list of all status transitions       |
-| Requeue a failed job   | `POST /api/imports/{id}/requeue`            | Only for `DeadLettered` or `ValidationFailed`      |
-| Check worker heartbeat | `GET /health` on Worker Host                | Reports `Unhealthy` if heartbeat is stale          |
+| Action                        | Endpoint / Command                             | Notes                                              |
+|-------------------------------|------------------------------------------------|----------------------------------------------------|
+| Check system health           | `GET /health`                                  | Returns `Healthy` / `Unhealthy` + component detail |
+| List failed jobs              | `GET /api/imports?status=DeadLettered`         | Add `&cursor=<id>&pageSize=25` to paginate         |
+| List validation errors        | `GET /api/imports?status=ValidationFailed`     | Data problems, no automatic retry                  |
+| List partial successes        | `GET /api/imports?status=PartiallySucceeded`   | Batch jobs where some chunks failed                |
+| Inspect job detail            | `GET /api/imports/{id}`                        | Includes `currentAttempt`, `lastErrorCode`, batch progress |
+| View job audit history        | `GET /api/imports/{id}/history`                | Chronological list of all status transitions       |
+| Requeue a failed job          | `POST /api/imports/{id}/requeue`               | For `DeadLettered`, `ValidationFailed`, or `PartiallySucceeded` |
+| Check worker heartbeat        | `GET /health` on Worker Host                   | Reports `Unhealthy` if heartbeat is stale          |
+| RabbitMQ Management UI        | `http://localhost:15672`                       | Queue depth, connections, dead-letter queue        |
 
 ---
 
@@ -261,14 +263,250 @@ JobId = "<job-id>"
 
 ### Common Log Patterns
 
-| Log message pattern                                      | Meaning                                               |
-|----------------------------------------------------------|-------------------------------------------------------|
-| `Claimed outbox entry {EntryId} for job {JobId}`         | Worker picked up a job for processing                 |
-| `Pipeline succeeded for job {JobId}`                     | All steps completed, DeliveryItems persisted          |
-| `Pipeline failed for job {JobId}: {ErrorCode}`           | Permanent failure — job will not be retried           |
-| `Transient failure for job {JobId}, attempt {N}`         | Retry scheduled with exponential backoff              |
-| `Job {JobId} dead-lettered after {N} attempts`           | All retries exhausted, DeadLetterEntry created        |
-| `Job {JobId} requeued`                                   | Manual requeue accepted, new OutboxEntry created      |
+| Log message pattern                                                       | Meaning                                               |
+|---------------------------------------------------------------------------|-------------------------------------------------------|
+| `Claimed outbox entry {EntryId} for job {JobId}`                          | Worker picked up a job (DB strategy)                  |
+| `Pipeline succeeded for job {JobId}`                                      | All steps completed, DeliveryItems persisted          |
+| `Pipeline partially succeeded for job {JobId}`                            | Batch job completed with chunk failures               |
+| `Chunk {N}/{Total} failed for job {JobId}. Lines in chunk: {Count}.`      | One chunk failed (Warning); pipeline continues        |
+| `Pipeline failed for job {JobId}: {ErrorCode}`                            | Permanent failure — job will not be retried           |
+| `Transient failure for job {JobId}, attempt {N}`                          | Retry scheduled with exponential backoff              |
+| `Job {JobId} dead-lettered after {N} attempts`                            | All retries exhausted, DeadLetterEntry created        |
+| `Job {JobId} requeued`                                                    | Manual requeue accepted, new OutboxEntry created      |
+| `RabbitMQ connection failed … retrying in {N}s`                           | Broker unreachable at startup; will retry             |
+
+---
+
+---
+
+## RabbitMQ Connection Issues
+
+> Applies when `Dispatch:Strategy = RabbitMQ`.
+
+### Symptoms
+
+- New jobs stay in `Received` indefinitely
+- Worker logs show `RabbitMQ connection failed` or `BrokerUnreachableException`
+- API logs show publish errors immediately after job creation
+
+### Steps
+
+1. **Check that RabbitMQ is running**
+
+   ```bash
+   docker compose ps rabbitmq
+   docker compose logs rabbitmq --tail=30
+   ```
+
+2. **Verify broker connectivity from the worker container**
+
+   ```bash
+   docker compose exec worker curl -f http://rabbitmq:15672/api/healthchecks/node \
+     -u guest:<RABBITMQ_PASSWORD>
+   ```
+
+   Expected response: `{"status":"ok"}`.
+
+3. **Check the Management UI**
+
+   Open `http://localhost:15672` (default credentials: `guest` / `<RABBITMQ_PASSWORD>`).
+
+   Verify:
+   - The `import-jobs` queue exists and is not in an error state
+   - Connections from both the API publisher and Worker consumer are listed under **Connections**
+
+4. **Inspect reconnect behaviour**
+
+   The `RabbitMqConnectionManager` retries the initial connection with a configurable interval
+   (default: 5 seconds). If the broker was temporarily unavailable at startup, restart the
+   affected container once the broker is healthy:
+
+   ```bash
+   docker compose restart api worker
+   ```
+
+5. **Fall back to the database strategy temporarily**
+
+   If the broker is unavailable and jobs must continue processing:
+
+   ```bash
+   docker compose stop api worker
+   # Edit docker-compose.yml: set Dispatch__Strategy=Database on both services
+   docker compose up -d api worker
+   ```
+
+   See [Switching dispatch strategies](#switching-dispatch-strategies).
+
+---
+
+## Queue Inspection via Management UI
+
+Open `http://localhost:15672` and log in with the configured RabbitMQ credentials.
+
+### Queues
+
+Navigate to **Queues and Streams**. Key queues:
+
+| Queue | Purpose |
+|---|---|
+| `import-jobs` | Main work queue; messages are published by the API and consumed by the Worker |
+| `import-jobs.dead-letters` | Messages that the Worker could not process and that exceeded RabbitMQ's delivery limits |
+
+**Metrics to watch:**
+
+| Metric | Healthy | Action needed |
+|---|---|---|
+| `Ready` | Low (close to 0) | Backlog building — check Worker health |
+| `Unacked` | ≤ number of active Worker threads | Messages are stuck unacknowledged — check Worker logs |
+| `Total` | Matches `Ready + Unacked` | — |
+
+### Connections and Channels
+
+Navigate to **Connections**. Expect at least two connections:
+
+- One from the API (producer channel for `BasicPublish`)
+- One from the Worker (consumer channel for `BasicConsume`)
+
+If either is missing, restart the corresponding service.
+
+---
+
+## Dead-Letter Queue Investigation (RabbitMQ)
+
+When the Worker fails to acknowledge a message and the broker's delivery limit is reached, the
+message is moved to `import-jobs.dead-letters` via the dead-letter exchange `import-jobs.dlx`.
+
+> **Note:** RabbitMQ dead-lettering is distinct from Ingestor's application-level `DeadLettered`
+> job status. A job can reach `DeadLettered` status via either strategy. Inspect both the queue
+> and the API to get the full picture.
+
+### Steps
+
+1. **Check for messages in the dead-letter queue**
+
+   Management UI → **Queues** → `import-jobs.dead-letters` → **Get messages**.
+
+   Each message contains a JSON body with `jobId`, `supplierCode`, and `importType`.
+
+2. **Cross-reference with the job API**
+
+   ```
+   GET /api/imports/{jobId}
+   ```
+
+   Check `lastErrorCode`, `lastErrorMessage`, and `currentAttempt`.
+
+3. **Read the full audit history**
+
+   ```
+   GET /api/imports/{jobId}/history
+   ```
+
+4. **Decide: requeue or discard**
+
+   - If the root cause (infrastructure or data) has been resolved → see [Manual Requeue](#manual-requeue)
+   - If the data is unrecoverable → no action needed; the job is already in `DeadLettered` state
+
+5. **Remove the message from the dead-letter queue**
+
+   Once the job has been handled via the API, purge or manually remove the dead-letter queue
+   message via the Management UI to keep the queue clean.
+
+---
+
+## Switching Dispatch Strategies
+
+Both the API and Worker must use the same strategy at all times. A mismatch (API publishes to
+RabbitMQ, Worker polls the DB) will cause jobs to queue up without being processed.
+
+### Switch to RabbitMQ
+
+1. Ensure RabbitMQ is healthy: `docker compose ps rabbitmq`
+2. Set `Dispatch__Strategy=RabbitMQ` on both `api` and `worker` services (environment variable
+   or `appsettings.json`)
+3. Restart both services:
+
+   ```bash
+   docker compose restart api worker
+   ```
+
+4. Submit a test job and confirm it transitions to `Succeeded`.
+
+### Switch to Database
+
+1. Set `Dispatch__Strategy=Database` on both services
+2. Restart both services:
+
+   ```bash
+   docker compose restart api worker
+   ```
+
+3. Any messages remaining in the RabbitMQ `import-jobs` queue will not be consumed. If jobs
+   were in-flight (published to RabbitMQ but not yet consumed), their `OutboxEntry` records
+   were also written to the database and will be picked up by the Worker on the next poll cycle.
+
+### Verify the active strategy
+
+Check the Worker startup logs:
+
+```bash
+docker compose logs worker | grep -i "dispatch"
+```
+
+Look for a line confirming which dispatcher was registered (e.g. `Using DatabaseJobDispatcher`
+or `Using RabbitMqJobDispatcher`).
+
+---
+
+## Investigating PartiallySucceeded Jobs
+
+### Symptoms
+
+- Job status is `PartiallySucceeded`
+- `failedLines > 0`; `processedLines + failedLines = totalLines`
+- Fewer `DeliveryItems` persisted than the total line count
+
+### What it means
+
+The job processed a file in chunks (batch mode). At least one chunk encountered a transient
+error during the database write (e.g. connection timeout). The pipeline caught the error,
+recorded the chunk as failed, and continued processing the remaining chunks.
+
+### Steps
+
+1. **Check job detail**
+
+   ```
+   GET /api/imports/{id}
+   ```
+
+   Note `processedLines`, `failedLines`, and `chunkSize`.
+
+2. **Read the audit history**
+
+   ```
+   GET /api/imports/{id}/history
+   ```
+
+   Look for the `Processing → PartiallySucceeded` transition and any warning messages that
+   accompany chunk failures.
+
+3. **Check Worker logs around the processing time**
+
+   ```bash
+   docker compose logs worker | grep "<job-id>"
+   ```
+
+   Chunk failures are logged at `Warning` level:
+   `Chunk {N}/{Total} failed for job {JobId}. Lines in chunk: {Count}.`
+
+4. **Decide: requeue or accept**
+
+   - **Requeue** if the infrastructure issue was transient and has resolved. The entire file
+     will be reprocessed from scratch; already-persisted `DeliveryItems` from the original run
+     are **not** deduplicated, so requeuing may produce duplicate items.
+   - **Accept** if the failed lines are non-critical and the successfully processed items are
+     sufficient for the business operation.
 
 ---
 
@@ -277,15 +515,18 @@ JobId = "<job-id>"
 ### Status Model Reference
 
 ```
-Received → Parsing → Validating → Processing → Succeeded
+Received → Parsing → Validating → Processing ──→ Succeeded
                │           │            │
-               │           └──→ ValidationFailed  (terminal, requeue allowed)
+               │           └────────────┴──→ ValidationFailed  (terminal, requeue allowed)
+               │                        │
+               │                        └──→ PartiallySucceeded  (terminal, batch jobs only)
                │
                └──→ ProcessingFailed ──→ (retry) ──→ Parsing
-               └──→ ValidationFailed             └──→ DeadLettered  (terminal, requeue allowed)
+                                    └──→ (exhausted) ──→ DeadLettered  (terminal, requeue allowed)
 
-DeadLettered     → Received  (manual requeue)
-ValidationFailed → Received  (manual requeue)
+DeadLettered       → Received  (manual requeue)
+ValidationFailed   → Received  (manual requeue)
+PartiallySucceeded → Received  (manual requeue, re-processes full file)
 ```
 
 ### Error Categories

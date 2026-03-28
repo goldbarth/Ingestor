@@ -1,6 +1,79 @@
 # Changelog
 
-## v1.0.0
+All notable changes to this project will be documented in this file.
+This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+---
+
+## [2.0.0] — 2026-03-28
+
+### Summary
+
+V2 introduces a config-switchable dispatch strategy (database queue or RabbitMQ), chunk-based batch import for large files, and a data-driven benchmark comparison of both dispatch strategies. All V1 behaviour is preserved by default; no migration steps are required for existing deployments.
+
+### Added
+
+#### Dispatcher abstraction (M6)
+- `IJobDispatcher` interface with `DispatchAsync` and `AcknowledgeAsync` operations — decouples job dispatch from the outbox implementation
+- `DatabaseJobDispatcher` — preserves V1 outbox-based dispatch as an explicit implementation
+- `Dispatch:Strategy` configuration key — switches between `"Database"` (default) and `"RabbitMQ"` at runtime without code changes
+- `IAfterSaveCallbackRegistry` — allows post-commit side effects (e.g. broker publish) to be registered by infrastructure and executed after the transaction commits ([ADR-017](docs/adrs/017-rabbitmq-post-commit-publish.md))
+
+#### RabbitMQ integration (M7)
+- `RabbitMqJobDispatcher` — publishes job messages to `import-jobs` queue after transaction commit
+- `RabbitMqWorker` (hosted service) — consumes messages from `import-jobs`, hands off to the existing pipeline, and acknowledges on success
+- Dead-letter exchange `import-jobs.dlx` and queue `import-jobs.dead-letters` — captures messages that cannot be delivered
+- `RabbitMqConnectionManager` — handles initial connection with configurable retry interval and reconnect on channel failure
+- RabbitMQ added to `docker-compose.yml` with Management UI (`rabbitmq:3-management`, ports `5672` and `15672`)
+- RabbitMQ Management UI reachable at `http://localhost:15672`
+- [ADR-014](docs/adrs/014-rabbitmq-integration.md): RabbitMQ integration design
+
+#### Throughput benchmark (M8)
+- `Ingestor.Benchmarks` project with BenchmarkDotNet
+- Three scenarios: 100 jobs sequential, 1 000 jobs sequential, 100 jobs with 2 concurrent workers
+- [ADR-015](docs/adrs/015-benchmark-results.md): measured results and recommendation (retain DB queue as default; switch to RabbitMQ when submission rate or latency requirements demand it)
+
+#### Batch import (M9)
+- `LineChunker` — splits parsed lines into fixed-size chunks (`Batch:ChunkSize`, default 500)
+- Files exceeding `ChunkSize` lines are processed as batch jobs; each chunk is committed atomically
+- `ImportJob` batch-tracking fields: `isBatch`, `totalLines`, `processedLines`, `failedLines`, `chunkSize`
+- `PartiallySucceeded` terminal status — set when at least one chunk fails; remaining chunks continue
+- `ImportJob.InitializeBatch`, `RecordChunkProcessed`, `RollbackChunkProcessed`, `RecordChunkFailed` — domain methods for per-chunk progress accounting
+- Invariant enforced: `processedLines + failedLines == totalLines`; `DeliveryItems.Count == processedLines`
+- `EfUnitOfWork.SaveChangesAsync` detaches all `EntityState.Added` entities on exception, preventing re-save of failed chunk items in the catch-block save
+- Integration tests: batch import with 10 000 lines (happy path, partial failure via fault injection, validation failure at scale)
+- [ADR-016](docs/adrs/016-batch-import-strategy.md): chunk strategy and partial failure semantics
+
+#### Documentation (M10)
+- README updated to reflect V2 capabilities, dispatch strategies, batch import, quick start with `.env`, and RabbitMQ endpoints
+- Runbook extended with RabbitMQ connection issues, queue inspection, dead-letter investigation, strategy switching, and `PartiallySucceeded` investigation procedures
+- This CHANGELOG
+
+### Fixed
+
+- **EF tracking bug in partial failure path** — when `SaveChangesAsync` failed mid-chunk (e.g. via injected timeout), EF Core retained chunk entities as `Added`. The catch block's subsequent `SaveChangesAsync` would silently persist those entities anyway, causing `FailedLines` and `DeliveryItems.Count` to be inconsistent. Fixed by detaching `Added` entities in `EfUnitOfWork` and rolling back the optimistic `ProcessedLines` increment via `RollbackChunkProcessed` ([#118](https://github.com/goldbarth/Ingestor/issues/118))
+
+### Changed
+
+- `docker-compose.yml` default dispatch strategy changed from `Database` to `RabbitMQ` (RabbitMQ is now included in the compose stack)
+- `ImportJob` domain entity extended with nullable batch-tracking properties; all new fields are nullable and have no effect on non-batch jobs
+- ADR count: 12 (V1) → 17 (V2); all ADRs in [`docs/adrs/`](docs/adrs/)
+
+### Migration notes
+
+**Existing deployments** using the database dispatch strategy require no changes. `Dispatch:Strategy` defaults to `"Database"`.
+
+**Database schema** — new columns on `import_jobs` (`is_batch`, `total_lines`, `processed_lines`, `failed_lines`, `chunk_size`) are added by EF Core migrations. Migrations are applied automatically on startup or via:
+
+```bash
+dotnet ef database update --project src/Ingestor.Infrastructure
+```
+
+**RabbitMQ** — only required when `Dispatch:Strategy = "RabbitMQ"`. Add `RABBITMQ_PASSWORD` to your `.env` file and run `docker compose up`.
+
+---
+
+## [1.0.0] — 2026-03-18
 
 ### Summary
 

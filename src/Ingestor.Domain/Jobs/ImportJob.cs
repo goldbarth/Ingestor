@@ -72,6 +72,11 @@ public sealed class ImportJob
         ProcessedLines = (ProcessedLines ?? 0) + count;
     }
 
+    public void RecordChunkFailed(int count)
+    {
+        FailedLines = (FailedLines ?? 0) + count;
+    }
+
     public void Requeue(DateTimeOffset now)
     {
         ImportJobWorkflow.EnsureCanTransition(Status, JobStatus.Received);

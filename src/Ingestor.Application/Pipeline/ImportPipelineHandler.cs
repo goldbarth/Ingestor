@@ -8,6 +8,7 @@ using Ingestor.Domain.Jobs.Enums;
 using Ingestor.Domain.Parsing;
 using Ingestor.Domain.Validation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Ingestor.Application.Pipeline;
@@ -20,6 +21,7 @@ public sealed class ImportPipelineHandler(
     DeliveryAdviceValidator validator,
     IClock clock,
     IOptions<BatchOptions> batchOptions,
+    ILogger<ImportPipelineHandler> logger,
     [FromKeyedServices("csv")] IDeliveryAdviceParser csvParser,
     [FromKeyedServices("json")] IDeliveryAdviceParser jsonParser)
 {
@@ -196,26 +198,39 @@ public sealed class ImportPipelineHandler(
                     if (isBatch)
                         job.InitializeBatch(parseResult.Lines.Count, batchOptions.Value.ChunkSize);
 
-                    foreach (var chunk in chunks)
+                    for (var chunkIndex = 0; chunkIndex < chunks.Count; chunkIndex++)
                     {
-                        var chunkItems = chunk
-                            .Select(line => new DeliveryItem(
-                                DeliveryItemId.New(),
-                                job.Id,
-                                line.ArticleNumber,
-                                line.ProductName,
-                                line.Quantity,
-                                line.ExpectedDate,
-                                line.SupplierRef,
-                                processedAt))
-                            .ToList();
-
-                        await deliveryItemRepository.AddRangeAsync(chunkItems, ct);
-                        totalCount += chunkItems.Count;
-
-                        if (isBatch)
+                        var chunk = chunks[chunkIndex];
+                        try
                         {
-                            job.RecordChunkProcessed(chunkItems.Count);
+                            var chunkItems = chunk
+                                .Select(line => new DeliveryItem(
+                                    DeliveryItemId.New(),
+                                    job.Id,
+                                    line.ArticleNumber,
+                                    line.ProductName,
+                                    line.Quantity,
+                                    line.ExpectedDate,
+                                    line.SupplierRef,
+                                    processedAt))
+                                .ToList();
+
+                            await deliveryItemRepository.AddRangeAsync(chunkItems, ct);
+                            totalCount += chunkItems.Count;
+
+                            if (isBatch)
+                            {
+                                job.RecordChunkProcessed(chunkItems.Count);
+                                await unitOfWork.SaveChangesAsync(ct);
+                            }
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && isBatch)
+                        {
+                            logger.LogWarning(ex,
+                                "Chunk {ChunkIndex}/{ChunkCount} failed for job {JobId}. Lines in chunk: {LineCount}.",
+                                chunkIndex + 1, chunks.Count, job.Id.Value, chunk.Count);
+
+                            job.RecordChunkFailed(chunk.Count);
                             await unitOfWork.SaveChangesAsync(ct);
                         }
                     }

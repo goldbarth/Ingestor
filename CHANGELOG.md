@@ -51,7 +51,7 @@ V2 introduces a config-switchable dispatch strategy (database queue or RabbitMQ)
 
 ### Fixed
 
-- **EF tracking bug in partial failure path** — when `SaveChangesAsync` failed mid-chunk (e.g. via injected timeout), EF Core retained chunk entities as `Added`. The catch block's subsequent `SaveChangesAsync` would silently persist those entities anyway, causing `FailedLines` and `DeliveryItems.Count` to be inconsistent. Fixed by detaching `Added` entities in `EfUnitOfWork` and rolling back the optimistic `ProcessedLines` increment via `RollbackChunkProcessed` ([#118](https://github.com/goldbarth/Ingestor/issues/118))
+- **EF tracking bug in partial failure path** — when `SaveChangesAsync` failed mid-chunk (e.g. via injected timeout), EF Core retained chunk entities as `Added`. The catch block's subsequent `SaveChangesAsync` would silently persist those entities anyway, causing `FailedLines` and `DeliveryItems.Count` to be inconsistent. Fixed by detaching `Added` entities in `EfUnitOfWork` and rolling back the optimistic `ProcessedLines` increment via `RollbackChunkProcessed` ([#142](https://github.com/goldbarth/Ingestor/issues/142))
 
 ### Changed
 

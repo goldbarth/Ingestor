@@ -230,6 +230,11 @@ public sealed class ImportPipelineHandler(
                                 "Chunk {ChunkIndex}/{ChunkCount} failed for job {JobId}. Lines in chunk: {LineCount}.",
                                 chunkIndex + 1, chunks.Count, job.Id.Value, chunk.Count);
 
+                            // Undo the optimistic increments applied in the try block before the
+                            // failed save. EfUnitOfWork has already detached the Added delivery items,
+                            // so only the job entity (Modified) needs to be compensated here.
+                            totalCount -= chunk.Count;
+                            job.RollbackChunkProcessed(chunk.Count);
                             job.RecordChunkFailed(chunk.Count);
                             await unitOfWork.SaveChangesAsync(ct);
                         }

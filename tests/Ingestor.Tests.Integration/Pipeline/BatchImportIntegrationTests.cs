@@ -82,10 +82,11 @@ public sealed class BatchImportIntegrationTests(FaultInjectablePostgreSqlFixture
             .GetRequiredService<ImportPipelineHandler>()
             .HandleAsync(jobId);
 
-        // Assert – the pipeline treats a partial completion as success from the caller's view
+        // Assert – pipeline result
         result.IsSuccess.Should().BeTrue();
+        result.ProcessedItemCount.Should().Be(LineCount - ChunkSize); // 9 500 items actually saved
 
-        // Assert – job reflects partial success
+        // Assert – job reflects partial success with consistent counters
         await using var assertScope = fixture.Services.CreateAsyncScope();
         var job = await assertScope.ServiceProvider
             .GetRequiredService<IImportJobRepository>()
@@ -94,8 +95,16 @@ public sealed class BatchImportIntegrationTests(FaultInjectablePostgreSqlFixture
         job!.Status.Should().Be(JobStatus.PartiallySucceeded);
         job.IsBatch.Should().BeTrue();
         job.TotalLines.Should().Be(LineCount);
-        job.FailedLines.Should().Be(ChunkSize);    // one chunk (500 lines) reported as failed
-        job.FailedLines.Should().BeGreaterThan(0);
+        job.FailedLines.Should().Be(ChunkSize);                   // 500 lines in the failed chunk
+        job.ProcessedLines.Should().Be(LineCount - ChunkSize);    // 9 500 lines actually persisted
+        (job.ProcessedLines + job.FailedLines).Should().Be(job.TotalLines); // invariant: 10 000
+
+        // Assert – only items from successful chunks are in the DB
+        var items = await assertScope.ServiceProvider
+            .GetRequiredService<IngestorDbContext>()
+            .DeliveryItems.Where(d => d.JobId == jobId).ToListAsync();
+
+        items.Should().HaveCount(LineCount - ChunkSize); // 9 500, not 10 000
     }
 
     [Fact]

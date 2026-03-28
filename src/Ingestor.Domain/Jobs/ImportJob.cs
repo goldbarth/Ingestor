@@ -72,6 +72,11 @@ public sealed class ImportJob
         ProcessedLines = (ProcessedLines ?? 0) + count;
     }
 
+    public void RollbackChunkProcessed(int count)
+    {
+        ProcessedLines = Math.Max(0, (ProcessedLines ?? 0) - count);
+    }
+
     public void RecordChunkFailed(int count)
     {
         FailedLines = (FailedLines ?? 0) + count;

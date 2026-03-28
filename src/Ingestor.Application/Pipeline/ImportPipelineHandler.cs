@@ -220,11 +220,15 @@ public sealed class ImportPipelineHandler(
                         }
                     }
 
+                    var finalStatus = isBatch && job.FailedLines > 0
+                        ? JobStatus.PartiallySucceeded
+                        : JobStatus.Succeeded;
+
                     var succeededNow = clock.UtcNow;
                     var preSucceededStatus = job.Status;
-                    job.TransitionTo(JobStatus.Succeeded, succeededNow, totalCount);
+                    job.TransitionTo(finalStatus, succeededNow, totalCount);
                     await auditEventRepository.AddAsync(new AuditEvent(
-                        AuditEventId.New(), job.Id, preSucceededStatus, JobStatus.Succeeded,
+                        AuditEventId.New(), job.Id, preSucceededStatus, finalStatus,
                         AuditEventTrigger.Worker, succeededNow), ct);
                     await unitOfWork.SaveChangesAsync(ct);
 

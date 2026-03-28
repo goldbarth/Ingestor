@@ -1,3 +1,4 @@
+using Ingestor.Domain.Common;
 using Ingestor.Domain.Jobs.Enums;
 
 namespace Ingestor.Domain.Jobs;
@@ -87,13 +88,18 @@ public sealed class ImportJob
     {
         ImportJobWorkflow.EnsureCanTransition(Status, newStatus);
 
+        if (newStatus == JobStatus.PartiallySucceeded && IsBatch != true)
+            throw new DomainException(new DomainError(
+                "job.invalid_status_for_non_batch",
+                "PartiallySucceeded is only valid for batch jobs."));
+
         if (newStatus == JobStatus.Parsing && StartedAt is null)
             StartedAt = now;
 
-        if (newStatus is JobStatus.Succeeded or JobStatus.ValidationFailed or JobStatus.DeadLettered)
+        if (newStatus is JobStatus.Succeeded or JobStatus.PartiallySucceeded or JobStatus.ValidationFailed or JobStatus.DeadLettered)
             CompletedAt = now;
 
-        if (newStatus == JobStatus.Succeeded && processedItemCount.HasValue)
+        if ((newStatus is JobStatus.Succeeded or JobStatus.PartiallySucceeded) && processedItemCount.HasValue)
             ProcessedItemCount = processedItemCount.Value;
 
         Status = newStatus;

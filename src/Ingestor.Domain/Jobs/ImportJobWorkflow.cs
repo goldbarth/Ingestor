@@ -14,6 +14,7 @@ public static class ImportJobWorkflow
         (JobStatus.Validating,       JobStatus.Processing),
         (JobStatus.Validating,       JobStatus.ValidationFailed),
         (JobStatus.Processing,       JobStatus.Succeeded),
+        (JobStatus.Processing,       JobStatus.PartiallySucceeded),
         (JobStatus.Processing,       JobStatus.ProcessingFailed),
         (JobStatus.ProcessingFailed, JobStatus.Parsing),
         (JobStatus.ProcessingFailed, JobStatus.DeadLettered),

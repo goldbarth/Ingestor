@@ -132,4 +132,39 @@ public sealed class ImportJobTransitionTests
         act.Should().Throw<DomainException>()
             .Which.Error.Code.Should().Be("job.invalid_transition");
     }
+
+    // --- PartiallySucceeded ---
+
+    [Fact]
+    public void TransitionTo_PartiallySucceeded_BatchJob_SetsStatus()
+    {
+        var job = CreateJob(JobStatus.Processing);
+        job.InitializeBatch(totalLines: 100, chunkSize: 50);
+
+        job.TransitionTo(JobStatus.PartiallySucceeded, Now);
+
+        job.Status.Should().Be(JobStatus.PartiallySucceeded);
+    }
+
+    [Fact]
+    public void TransitionTo_PartiallySucceeded_BatchJob_SetsCompletedAt()
+    {
+        var job = CreateJob(JobStatus.Processing);
+        job.InitializeBatch(totalLines: 100, chunkSize: 50);
+
+        job.TransitionTo(JobStatus.PartiallySucceeded, Now);
+
+        job.CompletedAt.Should().Be(Now);
+    }
+
+    [Fact]
+    public void TransitionTo_PartiallySucceeded_NonBatchJob_ThrowsDomainException()
+    {
+        var job = CreateJob(JobStatus.Processing);
+
+        var act = () => job.TransitionTo(JobStatus.PartiallySucceeded, Now);
+
+        act.Should().Throw<DomainException>()
+            .Which.Error.Code.Should().Be("job.invalid_status_for_non_batch");
+    }
 }

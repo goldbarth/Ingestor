@@ -10,13 +10,13 @@ public sealed class IngestorApiClient(HttpClient http)
 
     public async Task<CursorPagedResponse<ImportJobResponse>?> GetJobsAsync(
         string? status = null,
-        Guid? cursor = null,
+        string? cursor = null,
         int pageSize = 25,
         CancellationToken ct = default)
     {
         var query = BuildQuery(
             ("status", status),
-            ("cursor", cursor?.ToString()),
+            ("cursor", cursor),
             ("pageSize", pageSize.ToString()));
 
         return await http.GetFromJsonAsync<CursorPagedResponse<ImportJobResponse>>(

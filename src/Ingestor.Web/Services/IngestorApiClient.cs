@@ -56,10 +56,14 @@ public sealed class IngestorApiClient(HttpClient http)
         return (null, false, $"{(int)response.StatusCode}: {body}");
     }
 
-    public async Task<bool> RequeueAsync(Guid id, CancellationToken ct = default)
+    public async Task<(bool success, string? error)> RequeueAsync(Guid id, CancellationToken ct = default)
     {
         var response = await http.PostAsync($"/api/imports/{id}/requeue", null, ct);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+            return (true, null);
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        return (false, $"{(int)response.StatusCode}: {body}");
     }
 
     // ── Metrics ──────────────────────────────────────────────────────────────

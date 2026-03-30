@@ -1,0 +1,271 @@
+@page "/imports/{Id:guid}"
+@inject IngestorApiClient Api
+@implements IDisposable
+
+<PageTitle>Job @Id.ToString()[..8]… — Ingestor</PageTitle>
+
+<div class="mb-4">
+    <a href="/imports" class="text-muted text-decoration-none small">
+        <i class="bi bi-arrow-left me-1"></i>Back to Imports
+    </a>
+</div>
+
+@if (_loadError is not null)
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_loadError
+    </div>
+}
+else if (_job is null)
+{
+    <div class="text-center text-muted py-5">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-start justify-content-between mb-4">
+        <div>
+            <h4 class="fw-semibold mb-1">
+                <span class="font-monospace">@_job.Id.ToString()[..8]…</span>
+            </h4>
+            <span class="badge @StatusBadgeClass(_job.Status) fs-6">@_job.Status</span>
+        </div>
+        @if (!IsTerminal(_job.Status))
+        {
+            <small class="text-muted">
+                <span class="spinner-border spinner-border-sm me-1"></span>Polling every 3s
+            </small>
+        }
+    </div>
+
+    <div class="row g-3 mb-4">
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom fw-semibold small">
+                    <i class="bi bi-info-circle me-2"></i>Details
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5 text-muted">Job ID</dt>
+                        <dd class="col-7 font-monospace">@_job.Id</dd>
+
+                        <dt class="col-5 text-muted">Supplier</dt>
+                        <dd class="col-7">@_job.SupplierCode</dd>
+
+                        <dt class="col-5 text-muted">Import Type</dt>
+                        <dd class="col-7">@_job.ImportType</dd>
+
+                        <dt class="col-5 text-muted">Received</dt>
+                        <dd class="col-7">@_job.ReceivedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                        @if (_job.StartedAt.HasValue)
+                        {
+                            <dt class="col-5 text-muted">Started</dt>
+                            <dd class="col-7">@_job.StartedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                        }
+                        @if (_job.CompletedAt.HasValue)
+                        {
+                            <dt class="col-5 text-muted">Completed</dt>
+                            <dd class="col-7">@_job.CompletedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom fw-semibold small">
+                    <i class="bi bi-arrow-repeat me-2"></i>Attempts
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="text-center">
+                            <div class="display-6 fw-bold">@_job.CurrentAttempt</div>
+                            <div class="text-muted small">of @_job.MaxAttempts</div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar @AttemptBarClass(_job.Status)"
+                                     style="width: @AttemptPercent(_job.CurrentAttempt, _job.MaxAttempts)%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @if (_job.LastErrorCode is not null)
+                    {
+                        <div class="alert alert-warning mb-0 small py-2">
+                            <strong>@_job.LastErrorCode</strong>
+                            @if (_job.LastErrorMessage is not null)
+                            {
+                                <div class="text-muted mt-1">@_job.LastErrorMessage</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        
+        @if (_job.IsBatch == true && _job.TotalLines.HasValue)
+        {
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom fw-semibold small">
+                        <i class="bi bi-layers me-2"></i>Batch Progress
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between small text-muted mb-2">
+                            <span>@(_job.ProcessedLines ?? 0) processed</span>
+                            <span>@(_job.FailedLines ?? 0) failed</span>
+                            <span>@_job.TotalLines total</span>
+                        </div>
+                        <div class="progress" style="height: 12px;">
+                            @{
+                                var processed = _job.ProcessedLines ?? 0;
+                                var failed = _job.FailedLines ?? 0;
+                                var total = _job.TotalLines!.Value;
+                                var processedPct = total > 0 ? (double)processed / total * 100 : 0;
+                                var failedPct = total > 0 ? (double)failed / total * 100 : 0;
+                            }
+                            <div class="progress-bar bg-success" style="width: @processedPct.ToString("F1")%"></div>
+                            <div class="progress-bar bg-danger" style="width: @failedPct.ToString("F1")%"></div>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            Chunk size: @_job.ChunkSize
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom fw-semibold small">
+            <i class="bi bi-clock-history me-2"></i>Audit Trail
+        </div>
+        @if (_history is null)
+        {
+            <div class="text-center text-muted py-3">
+                <div class="spinner-border spinner-border-sm"></div>
+            </div>
+        }
+        else if (_history.Count == 0)
+        {
+            <div class="text-center text-muted py-3 small">No events yet.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Time</th>
+                            <th>Transition</th>
+                            <th>Triggered by</th>
+                            <th class="pe-3">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in _history.OrderByDescending(x => x.OccurredAt))
+                        {
+                            <tr>
+                                <td class="ps-3 small text-muted align-middle">
+                                    @e.OccurredAt.ToLocalTime().ToString("HH:mm:ss")
+                                </td>
+                                <td class="align-middle">
+                                    <span class="badge @StatusBadgeClass(e.OldStatus) me-1">@e.OldStatus</span>
+                                    <i class="bi bi-arrow-right text-muted mx-1"></i>
+                                    <span class="badge @StatusBadgeClass(e.NewStatus)">@e.NewStatus</span>
+                                </td>
+                                <td class="align-middle small">
+                                    <span class="badge bg-light text-dark border">@e.TriggeredBy</span>
+                                </td>
+                                <td class="pe-3 small text-muted align-middle">@e.Comment</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ImportJobDetailResponse? _job;
+    private IReadOnlyList<AuditEventResponse>? _history;
+    private string? _loadError;
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _ = PollAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _job = await Api.GetJobDetailAsync(Id, _cts.Token);
+            _history = await Api.GetJobHistoryAsync(Id, _cts.Token);
+            _loadError = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _loadError = $"Could not load job: {ex.Message}";
+        }
+    }
+
+    private async Task PollAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                if (_job is not null && IsTerminal(_job.Status))
+                    return;
+
+                await LoadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private static bool IsTerminal(string status) => status is
+        "Succeeded" or "ValidationFailed" or "DeadLettered" or "PartiallySucceeded";
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Succeeded"          => "bg-success",
+        "DeadLettered"       => "bg-danger",
+        "ValidationFailed"   => "bg-warning text-dark",
+        "ProcessingFailed"   => "bg-warning text-dark",
+        "PartiallySucceeded" => "bg-warning text-dark",
+        "Processing"         => "bg-primary",
+        "Parsing"            => "bg-info text-dark",
+        "Validating"         => "bg-info text-dark",
+        _                    => "bg-secondary"
+    };
+
+    private static string AttemptBarClass(string status) => status switch
+    {
+        "Succeeded" or "PartiallySucceeded" => "bg-success",
+        "DeadLettered" or "ValidationFailed" or "ProcessingFailed" => "bg-danger",
+        _ => "bg-primary"
+    };
+
+    private static double AttemptPercent(int current, int max) =>
+        max > 0 ? Math.Min((double)current / max * 100, 100) : 0;
+
+    public void Dispose() => _cts.Cancel();
+}

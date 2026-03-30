@@ -1,0 +1,332 @@
+@page "/imports"
+@inject IngestorApiClient Api
+@implements IDisposable
+
+<PageTitle>Imports — Ingestor</PageTitle>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0 fw-semibold">Imports</h4>
+    @if (_lastUpdated.HasValue)
+    {
+        <small class="text-muted">
+            <i class="bi bi-arrow-repeat me-1"></i>Updated @_lastUpdated.Value.ToLocalTime().ToString("HH:mm:ss")
+        </small>
+    }
+</div>
+
+{{!-- Upload Form --}}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom fw-semibold">
+        <i class="bi bi-cloud-upload me-2"></i>Upload File
+    </div>
+    <div class="card-body">
+        @if (_uploadFeedback is not null)
+        {
+            <div class="alert alert-@_uploadFeedback.CssClass alert-dismissible mb-3" role="alert">
+                @_uploadFeedback.Message
+                <button type="button" class="btn-close" @onclick="() => _uploadFeedback = null"></button>
+            </div>
+        }
+        <EditForm Model="_uploadModel" OnValidSubmit="UploadAsync">
+            <DataAnnotationsValidator />
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Supplier Code</label>
+                    <InputText class="form-control" @bind-Value="_uploadModel.SupplierCode" placeholder="e.g. SUP-001" />
+                    <ValidationMessage For="() => _uploadModel.SupplierCode" class="text-danger small" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Import Type</label>
+                    <InputSelect class="form-select" @bind-Value="_uploadModel.ImportType">
+                        <option value="@ImportType.CsvDeliveryAdvice">CSV Delivery Advice</option>
+                        <option value="@ImportType.JsonDeliveryAdvice">JSON Delivery Advice</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">File</label>
+                    <InputFile class="form-control" OnChange="OnFileSelected" accept=".csv,.json,text/csv,application/json" />
+                    <ValidationMessage For="() => _uploadModel.FileName" class="text-danger small" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary" disabled="@(_uploading || _selectedFile is null)">
+                    @if (_uploading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Upload
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+{{!-- Job List --}}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom d-flex align-items-center justify-content-between">
+        <span class="fw-semibold"><i class="bi bi-list-ul me-2"></i>Jobs</span>
+        <select class="form-select form-select-sm w-auto" @bind="_statusFilter" @bind:after="OnFilterChanged">
+            <option value="">All statuses</option>
+            @foreach (var s in Enum.GetNames<JobStatus>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+    </div>
+    <div class="card-body p-0">
+        @if (_loadError is not null)
+        {
+            <div class="p-3">
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>@_loadError
+                </div>
+            </div>
+        }
+        else if (_jobs is null)
+        {
+            <div class="text-center text-muted py-4">
+                <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+            </div>
+        }
+        else if (_jobs.Count == 0)
+        {
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox me-2"></i>No jobs found.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3" style="width:120px">ID</th>
+                            <th>Supplier</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Received</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var job in _jobs)
+                        {
+                            <tr>
+                                <td class="ps-3 font-monospace text-muted small align-middle">
+                                    @job.Id.ToString()[..8]…
+                                </td>
+                                <td class="align-middle">@job.SupplierCode</td>
+                                <td class="align-middle small text-muted">@job.ImportType</td>
+                                <td class="align-middle">
+                                    <span class="badge @StatusBadgeClass(job.Status)">@job.Status</span>
+                                </td>
+                                <td class="align-middle small text-muted">
+                                    @job.ReceivedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                </td>
+                                <td class="align-middle text-end pe-3">
+                                    <a href="/imports/@job.Id" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_hasNextPage)
+            {
+                <div class="text-center py-3 border-top">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="LoadMoreAsync" disabled="@_loadingMore">
+                        @if (_loadingMore)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Load more
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    // ── Upload ────────────────────────────────────────────────────────────────
+
+    private readonly UploadModel _uploadModel = new();
+    private IBrowserFile? _selectedFile;
+    private bool _uploading;
+    private UploadFeedback? _uploadFeedback;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _uploadModel.FileName = e.File.Name;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_selectedFile is null) return;
+
+        _uploading = true;
+        _uploadFeedback = null;
+
+        try
+        {
+            await using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            var (job, isDuplicate, error) = await Api.UploadAsync(
+                _uploadModel.SupplierCode,
+                _uploadModel.ImportType,
+                _selectedFile.Name,
+                stream,
+                _cts.Token);
+
+            if (error is not null)
+            {
+                _uploadFeedback = new("danger", $"Upload failed: {error}");
+            }
+            else if (isDuplicate)
+            {
+                _uploadFeedback = new("warning", $"File already uploaded — existing job: {job!.Id}");
+            }
+            else
+            {
+                _uploadFeedback = new("success", $"Job created: {job!.Id}");
+                _uploadModel.SupplierCode = string.Empty;
+                _selectedFile = null;
+                await RefreshFirstPageAsync();
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _uploadFeedback = new("danger", $"Unexpected error: {ex.Message}");
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    // ── Job List ──────────────────────────────────────────────────────────────
+
+    private List<ImportJobResponse>? _jobs;
+    private string? _nextCursor;
+    private bool _hasNextPage;
+    private string _statusFilter = string.Empty;
+    private bool _loadingMore;
+    private string? _loadError;
+    private DateTimeOffset? _lastUpdated;
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshFirstPageAsync();
+        _ = PollAsync();
+    }
+
+    private async Task RefreshFirstPageAsync()
+    {
+        try
+        {
+            var page = await Api.GetJobsAsync(
+                status: string.IsNullOrEmpty(_statusFilter) ? null : _statusFilter,
+                cursor: null,
+                ct: _cts.Token);
+
+            if (page is not null)
+            {
+                _jobs = [..page.Items];
+                _nextCursor = page.NextCursor;
+                _hasNextPage = page.HasNextPage;
+                _lastUpdated = DateTimeOffset.UtcNow;
+                _loadError = null;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _loadError = $"Could not reach API: {ex.Message}";
+        }
+    }
+
+    private async Task OnFilterChanged()
+    {
+        _jobs = null;
+        _nextCursor = null;
+        await RefreshFirstPageAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        if (_nextCursor is null) return;
+
+        _loadingMore = true;
+        try
+        {
+            var page = await Api.GetJobsAsync(
+                status: string.IsNullOrEmpty(_statusFilter) ? null : _statusFilter,
+                cursor: _nextCursor,
+                ct: _cts.Token);
+
+            if (page is not null)
+            {
+                _jobs ??= [];
+                _jobs.AddRange(page.Items);
+                _nextCursor = page.NextCursor;
+                _hasNextPage = page.HasNextPage;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _loadError = $"Could not load more: {ex.Message}";
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
+    }
+
+    private async Task PollAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                await RefreshFirstPageAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Succeeded"          => "bg-success",
+        "DeadLettered"       => "bg-danger",
+        "ValidationFailed"   => "bg-warning text-dark",
+        "ProcessingFailed"   => "bg-warning text-dark",
+        "PartiallySucceeded" => "bg-warning text-dark",
+        "Processing"         => "bg-primary",
+        "Parsing"            => "bg-info text-dark",
+        "Validating"         => "bg-info text-dark",
+        _                    => "bg-secondary"
+    };
+
+    public void Dispose() => _cts.Cancel();
+
+    // ── Models ────────────────────────────────────────────────────────────────
+
+    private sealed class UploadModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string SupplierCode { get; set; } = string.Empty;
+
+        public ImportType ImportType { get; set; } = ImportType.CsvDeliveryAdvice;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string? FileName { get; set; }
+    }
+
+    private sealed record UploadFeedback(string CssClass, string Message);
+}

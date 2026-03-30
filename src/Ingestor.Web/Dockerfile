@@ -10,13 +10,10 @@ COPY src/Ingestor.Contracts/Ingestor.Contracts.csproj     src/Ingestor.Contracts
 COPY src/Ingestor.Contracts/packages.lock.json             src/Ingestor.Contracts/
 COPY src/Ingestor.Web/Ingestor.Web.csproj                  src/Ingestor.Web/
 
-RUN dotnet restore src/Ingestor.Web/Ingestor.Web.csproj
-
 COPY src/ src/
 
 RUN dotnet publish src/Ingestor.Web/Ingestor.Web.csproj \
     -c Release \
-    --no-restore \
     -o /app/publish
 
 # Stage 2 – Runtime (ASP.NET Core, no SDK, no source code)

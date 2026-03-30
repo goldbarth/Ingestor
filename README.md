@@ -7,7 +7,7 @@
   </a>
 </p>
 
-A production-grade .NET 10 application for reliable asynchronous import processing. Files are received, validated, processed in configurable chunks, and tracked — with structured error handling, automatic retries, full audit trails, and a config-switchable dispatch strategy (database queue or RabbitMQ).
+A production-grade .NET 10 application for reliable asynchronous import processing. Files are received, validated, processed in configurable chunks, and tracked — with structured error handling, automatic retries, full audit trails, and a config-switchable dispatch strategy (database queue or RabbitMQ). Includes a Blazor Server web UI for operational monitoring, file uploads, and dead-letter management.
 
 > Fleetholm Logistics is a fictional company used as the domain context for this project.
 
@@ -30,9 +30,17 @@ A production-grade .NET 10 application for reliable asynchronous import processi
 
 ## System architecture
 
-Two independently deployable processes share a PostgreSQL database. The dispatch path between them is configurable at runtime.
+Three independently deployable processes share a PostgreSQL database. The dispatch path between API and Worker is configurable at runtime.
 
 ```
+ ┌─────────────────────────┐
+ │     Ingestor.Web        │
+ │                         │
+ │  Dashboard              │──── HTTP ──────────────────────────┐
+ │  Imports (upload)       │                                    │
+ │  Dead Letters           │                                    │
+ └─────────────────────────┘                                    │
+                                                                ▼
  ┌─────────────────────────┐                      ┌─────────────────────────┐
  │      Ingestor.Api       │                      │    Ingestor.Worker      │
  │                         │                      │                         │
@@ -198,6 +206,8 @@ See [ADR-016](docs/adrs/016-batch-import-strategy.md) for the design rationale.
 | DB queue vs. RabbitMQ benchmark | BenchmarkDotNet scenarios | [ADR-015](docs/adrs/015-benchmark-results.md) |
 | Chunk-based batch processing and partial failures | `LineChunker`, `BatchOptions` | [ADR-016](docs/adrs/016-batch-import-strategy.md) |
 | Post-commit RabbitMQ publish | `IAfterSaveCallbackRegistry` | [ADR-017](docs/adrs/017-rabbitmq-post-commit-publish.md) |
+| Blazor Server as web frontend | `Ingestor.Web` | [ADR-018](docs/adrs/018-blazor-server-web-ui.md) |
+| Persistent Data Protection keys | `PersistKeysToAzureBlobStorage` | [ADR-019](docs/adrs/019-data-protection-azure-blob-storage.md) |
 
 All ADRs are in [`docs/adrs/`](docs/adrs/).
 
@@ -209,6 +219,7 @@ All ADRs are in [`docs/adrs/`](docs/adrs/).
 |---|---|
 | Runtime | .NET 10 (SDK 10.0.102) |
 | API | ASP.NET Core Minimal API |
+| Web UI | Blazor Server (ASP.NET Core) |
 | ORM | EF Core 10, Npgsql |
 | Background jobs | .NET Worker Host (`BackgroundService`) |
 | Message broker | RabbitMQ 3 (optional, via `RabbitMQ.Client`) |
@@ -250,6 +261,7 @@ This starts PostgreSQL, RabbitMQ, the API, and the Worker. The default `docker-c
 
 | Service | URL |
 |---|---|
+| Web UI | http://localhost:8202 |
 | API | http://localhost:8200 |
 | Interactive API docs | http://localhost:8200/scalar |
 | API health | http://localhost:8200/health |

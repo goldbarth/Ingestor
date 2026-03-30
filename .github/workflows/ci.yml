@@ -80,7 +80,7 @@ jobs:
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
-    needs: build
+    needs: [unit-tests, integration-tests]
     steps:
       - uses: actions/checkout@v4
 

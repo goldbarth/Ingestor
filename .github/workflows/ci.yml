@@ -92,3 +92,6 @@ jobs:
 
       - name: Build Worker image
         run: docker build -t ingestor-worker:ci -f src/Ingestor.Worker/Dockerfile .
+
+      - name: Build Web image
+        run: docker build -t ingestor-web:ci -f src/Ingestor.Web/Dockerfile .

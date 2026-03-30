@@ -6,6 +6,7 @@
     <Project Path="src/Ingestor.Domain/Ingestor.Domain.csproj" />
     <Project Path="src/Ingestor.Infrastructure/Ingestor.Infrastructure.csproj" />
     <Project Path="src/Ingestor.Worker/Ingestor.Worker.csproj" />
+    <Project Path="src/Ingestor.Web/Ingestor.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ingestor.Benchmarks/Ingestor.Benchmarks.csproj" />

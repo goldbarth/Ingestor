@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  DOTNET_MULTILEVEL_LOOKUP: '0'
+
 jobs:
   build:
     name: Build
@@ -16,7 +19,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.102'
+          dotnet-version: '10.0.104'
 
       - name: Restore
         run: dotnet restore Ingestor.slnx --locked-mode
@@ -34,7 +37,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.102'
+          dotnet-version: '10.0.104'
 
       - name: Restore
         run: dotnet restore Ingestor.slnx --locked-mode
@@ -62,7 +65,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.102'
+          dotnet-version: '10.0.104'
 
       - name: Restore
         run: dotnet restore Ingestor.slnx --locked-mode

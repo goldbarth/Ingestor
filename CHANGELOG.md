@@ -5,6 +5,37 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [3.0.0] — 2026-03-30
+
+### Summary
+
+V3 adds a complete Blazor Server web UI and cloud deployment support for Azure Container Apps. The backend is unchanged; all V2 behaviour is preserved by default.
+
+### Added
+
+#### Web UI (Blazor Server) — [ADR-018](docs/adrs/018-blazor-server-web-ui.md)
+- `Ingestor.Web` — new Blazor Server project with three pages:
+  - **Dashboard** — real-time job and processing metrics
+  - **Imports** — file upload with live job list and status tracking
+  - **Dead Letters** — list of failed jobs with requeue capability
+- `IngestorApiClient` — typed HTTP client for API communication
+- Dockerfile for `Ingestor.Web` (multi-stage build, non-root user)
+- CI pipeline extended: Docker build for all three images runs as final quality gate
+- `docker-compose.yml` — `web` service added (port `8202`, `http://localhost:8202`)
+
+#### Azure Container Apps deployment — [ADR-019](docs/adrs/019-data-protection-azure-blob-storage.md)
+- Data Protection keys persisted to Azure Blob Storage via `Azure.Extensions.AspNetCore.DataProtection.Blobs`
+- Prevents antiforgery/circuit failures after scale-to-zero container restarts
+- Opt-in via `DataProtection:StorageConnectionString`; no impact on local or non-Azure deployments
+
+### Migration notes
+
+**Existing deployments** (local Docker Compose, bare .NET) are not affected. `DataProtection:StorageConnectionString` is optional and absent by default.
+
+**Azure Container Apps:** create a Storage Account, a `dataprotection` blob container, and store the connection string as a Container Apps secret. Reference it via `DataProtection__StorageConnectionString=secretref:<secret-name>`. See the [runbook](docs/runbook.md#azure-container-apps-deployment) for the step-by-step procedure.
+
+---
+
 ## [2.0.0] — 2026-03-28
 
 ### Summary

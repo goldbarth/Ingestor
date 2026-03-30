@@ -510,6 +510,99 @@ recorded the chunk as failed, and continued processing the remaining chunks.
 
 ---
 
+## Azure Container Apps Deployment
+
+> Applies when running `Ingestor.Web` on Azure Container Apps.
+
+### Data Protection Keys Lost After Container Restart
+
+**Symptoms**
+
+- File upload button on the Imports page appears active but produces no response after a period of inactivity
+- No network error visible in browser DevTools; the Blazor circuit connects successfully
+- Server logs show antiforgery token validation failures
+
+**Cause**
+
+Azure Container Apps defaults to scale-to-zero: the container stops when there is no traffic and restarts on the next request. Each restart generates new in-memory Data Protection keys. Tokens encrypted by the previous process are invalid on restart.
+
+**Fix**
+
+1. Ensure a storage account and `dataprotection` container exist:
+
+   ```bash
+   az storage account create -g <rg> -n <storage-name> --location northeurope --sku Standard_LRS
+   az storage container create --account-name <storage-name> --name dataprotection
+   ```
+
+2. Retrieve the connection string and store it as a Container Apps secret:
+
+   ```bash
+   az storage account show-connection-string -g <rg> -n <storage-name> --query connectionString -o tsv
+
+   az containerapp secret set -g <rg> -n ca-ingestor-web \
+     --secrets "dp-storage=<connection-string>"
+   ```
+
+3. Set the environment variable referencing the secret:
+
+   ```bash
+   az containerapp update -g <rg> -n ca-ingestor-web \
+     --set-env-vars "DataProtection__StorageConnectionString=secretref:dp-storage"
+   ```
+
+4. Force a new revision so the secret takes effect:
+
+   ```bash
+   az containerapp update -g <rg> -n ca-ingestor-web --revision-suffix v2
+   ```
+
+See [ADR-019](adrs/019-data-protection-azure-blob-storage.md) for the design rationale.
+
+---
+
+### Scale-to-Zero Cold Start Latency
+
+**Symptoms**
+
+- The first request after a period of inactivity takes noticeably longer (typically 5–15 seconds)
+
+**Cause**
+
+This is expected behaviour. Azure Container Apps stops idle containers and restarts them on the next request. The delay is the container startup time.
+
+No action is required unless the latency is unacceptable. To prevent scale-to-zero entirely, set `--min-replicas 1`:
+
+```bash
+az containerapp update -g <rg> -n ca-ingestor-web --min-replicas 1
+```
+
+Note: `--min-replicas 1` incurs cost even when idle.
+
+---
+
+### Secret Update Not Taking Effect
+
+**Symptoms**
+
+- A secret was updated via `az containerapp secret set` but the running container still uses the old value
+
+**Cause**
+
+Container Apps secrets are applied at revision creation time, not dynamically. An existing revision does not pick up secret changes.
+
+**Fix**
+
+Force a new revision:
+
+```bash
+az containerapp update -g <rg> -n <app-name> --revision-suffix v<N>
+```
+
+Use an incrementing suffix (v2, v3, ...) to distinguish revisions.
+
+---
+
 ## Appendix
 
 ### Status Model Reference

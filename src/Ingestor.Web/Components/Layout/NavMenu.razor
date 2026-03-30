@@ -1,0 +1,24 @@
+<nav class="d-flex flex-column p-3 bg-dark text-white" style="width: 230px; min-height: 100vh; flex-shrink: 0;">
+    <div class="mb-4 px-1">
+        <div class="fs-5 fw-bold text-white">Ingestor</div>
+        <small class="text-secondary">Import Pipeline</small>
+    </div>
+
+    <ul class="nav nav-pills flex-column gap-1">
+        <li class="nav-item">
+            <NavLink class="nav-link text-white-50" ActiveClass="active text-white bg-secondary" href="/" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link text-white-50" ActiveClass="active text-white bg-secondary" href="/imports">
+                <i class="bi bi-cloud-upload me-2"></i>Imports
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink class="nav-link text-white-50" ActiveClass="active text-white bg-secondary" href="/dead-letters">
+                <i class="bi bi-exclamation-triangle me-2"></i>Dead Letters
+            </NavLink>
+        </li>
+    </ul>
+</nav>

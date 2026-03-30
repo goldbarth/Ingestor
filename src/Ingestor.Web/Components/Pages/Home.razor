@@ -1,7 +1,168 @@
 ﻿@page "/"
+@inject IngestorApiClient Api
+@implements IDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard — Ingestor</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0 fw-semibold">Dashboard</h4>
+    @if (_lastUpdated.HasValue)
+    {
+        <small class="text-muted">
+            <i class="bi bi-arrow-repeat me-1"></i>Updated @_lastUpdated.Value.ToLocalTime().ToString("HH:mm:ss")
+        </small>
+    }
+</div>
 
-Welcome to your new app.
+@if (_error is not null)
+{
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>@_error
+    </div>
+}
+
+@if (_jobMetrics is null && _error is null)
+{
+    <div class="text-center text-muted py-5">
+        <div class="spinner-border spinner-border-sm me-2"></div>Loading…
+    </div>
+}
+else if (_jobMetrics is not null)
+{
+    <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size: .75rem; letter-spacing: .05em;">
+        Jobs by Status
+    </h6>
+    <div class="row g-3 mb-4">
+        @foreach (var (status, count) in _jobMetrics.CountsByStatus.OrderBy(x => x.Key))
+        {
+            <div class="col-6 col-md-4 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="badge @StatusBadgeClass(status) fs-6 px-3 py-2">@count</span>
+                            <span class="text-muted small">@StatusIcon(status)</span>
+                        </div>
+                        <div class="mt-2 fw-semibold small">@status</div>
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="col-6 col-md-4 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 bg-dark text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="badge bg-light text-dark fs-6 px-3 py-2">@_jobMetrics.Total</span>
+                        <i class="bi bi-stack text-secondary"></i>
+                    </div>
+                    <div class="mt-2 fw-semibold small">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_processingMetrics is not null)
+    {
+        <h6 class="text-muted text-uppercase fw-semibold mb-3" style="font-size: .75rem; letter-spacing: .05em;">
+            Processing
+        </h6>
+        <div class="row g-3">
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body">
+                        <div class="display-6 fw-bold text-success">@_processingMetrics.SuccessRate.ToString("P1")</div>
+                        <div class="text-muted small mt-1">Success Rate</div>
+                        <div class="text-muted" style="font-size:.75rem;">
+                            @_processingMetrics.SuccessfulAttempts / @_processingMetrics.TotalAttempts attempts
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body">
+                        <div class="display-6 fw-bold text-primary">@((int)_processingMetrics.AverageDurationMs)</div>
+                        <div class="text-muted small mt-1">Avg Duration (ms)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body">
+                        <div class="display-6 fw-bold text-danger">@_processingMetrics.FailedAttempts</div>
+                        <div class="text-muted small mt-1">Failed Attempts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private JobMetricsResponse? _jobMetrics;
+    private ProcessingMetricsResponse? _processingMetrics;
+    private DateTimeOffset? _lastUpdated;
+    private string? _error;
+
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _ = PollAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _jobMetrics = await Api.GetJobMetricsAsync(_cts.Token);
+            _processingMetrics = await Api.GetProcessingMetricsAsync(_cts.Token);
+            _lastUpdated = DateTimeOffset.UtcNow;
+            _error = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _error = $"Could not reach API: {ex.Message}";
+        }
+    }
+
+    private async Task PollAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token))
+            {
+                await LoadAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Succeeded"          => "bg-success",
+        "DeadLettered"       => "bg-danger",
+        "ValidationFailed"   => "bg-warning text-dark",
+        "ProcessingFailed"   => "bg-warning text-dark",
+        "PartiallySucceeded" => "bg-warning text-dark",
+        "Processing"         => "bg-primary",
+        "Parsing"            => "bg-info text-dark",
+        "Validating"         => "bg-info text-dark",
+        _                    => "bg-secondary"
+    };
+
+    private static string StatusIcon(string status) => status switch
+    {
+        "Succeeded"          => "✓",
+        "DeadLettered"       => "✗",
+        "ValidationFailed"   => "⚠",
+        "ProcessingFailed"   => "⚠",
+        "PartiallySucceeded" => "~",
+        "Processing"         => "⟳",
+        _                    => "·"
+    };
+
+    public void Dispose() => _cts.Cancel();
+}

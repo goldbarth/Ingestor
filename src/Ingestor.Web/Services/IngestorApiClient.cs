@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Ingestor.Contracts.V1.Enums;
 using Ingestor.Contracts.V1.Responses;
 
 namespace Ingestor.Web.Services;
@@ -30,19 +31,17 @@ public sealed class IngestorApiClient(HttpClient http)
 
     public async Task<(ImportJobResponse? job, bool isDuplicate, string? error)> UploadAsync(
         string supplierCode,
-        string importType,
+        ImportType importType,
         string fileName,
         Stream fileContent,
         CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent(supplierCode), "supplierCode");
-        form.Add(new StringContent(importType), "importType");
+        form.Add(new StringContent(importType.ToString()), "importType");
 
         var fileStreamContent = new StreamContent(fileContent);
-        fileStreamContent.Headers.ContentType = importType == "CsvDeliveryAdvice"
-            ? new MediaTypeHeaderValue("text/csv")
-            : new MediaTypeHeaderValue("application/json");
+        fileStreamContent.Headers.ContentType = new MediaTypeHeaderValue(importType.ToMediaType());
         form.Add(fileStreamContent, "file", fileName);
 
         var response = await http.PostAsync("/api/imports", form, ct);

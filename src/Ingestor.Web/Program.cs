@@ -1,7 +1,19 @@
+using Azure.Storage.Blobs;
 using Ingestor.Web.Components;
 using Ingestor.Web.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var storageConnectionString = builder.Configuration["DataProtection:StorageConnectionString"];
+if (!string.IsNullOrEmpty(storageConnectionString))
+{
+    var containerClient = new BlobContainerClient(storageConnectionString, "dataprotection");
+    containerClient.CreateIfNotExists();
+    builder.Services.AddDataProtection()
+        .SetApplicationName("ingestor-web")
+        .PersistKeysToAzureBlobStorage(containerClient.GetBlobClient("keys.xml"));
+}
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

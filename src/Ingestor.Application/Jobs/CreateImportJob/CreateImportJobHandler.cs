@@ -2,13 +2,15 @@ using Ingestor.Application.Abstractions;
 using Ingestor.Application.Common;
 using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
+using Microsoft.Extensions.Options;
 
 namespace Ingestor.Application.Jobs.CreateImportJob;
 
 public sealed class CreateImportJobHandler(
     IImportJobRepository jobRepository,
     IJobDispatcher jobDispatcher,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IOptions<ImportJobOptions> jobOptions)
 {
     private const int MaxPayloadSizeBytes = 10 * 1024 * 1024;
 
@@ -49,7 +51,7 @@ public sealed class CreateImportJobHandler(
             idempotencyKey,
             payload.Id.Value.ToString(),
             now,
-            maxAttempts: 3);
+            maxAttempts: jobOptions.Value.MaxAttempts);
 
         await jobRepository.AddAsync(job, payload, ct);
         await jobDispatcher.DispatchAsync(job, ct);

@@ -1,0 +1,60 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR: acringestordev.azurecr.io
+  RG: rg-ingestor
+
+jobs:
+  deploy:
+    name: Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR Login
+        run: az acr login --name acringestordev
+
+      - name: Build & Push API
+        run: |
+          docker build -t ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Api/Dockerfile .
+          docker push ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }}
+
+      - name: Build & Push Worker
+        run: |
+          docker build -t ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Worker/Dockerfile .
+          docker push ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }}
+
+      - name: Build & Push Web
+        run: |
+          docker build -t ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Web/Dockerfile .
+          docker push ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy API
+        run: az containerapp update --name ca-ingestor-api --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy Worker
+        run: az containerapp update --name ca-ingestor-worker --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy Web
+        run: az containerapp update --name ca-ingestor-web --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }}

@@ -5,6 +5,9 @@
   <a href="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml">
     <img src="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
+  <a href="https://github.com/goldbarth/Ingestor/actions/workflows/cd.yml">
+    <img src="https://github.com/goldbarth/Ingestor/actions/workflows/cd.yml/badge.svg" alt="CD" />
+  </a>
 </p>
 
 A production-grade .NET 10 application for reliable asynchronous import processing. Files are received, validated, processed in configurable chunks, and tracked — with structured error handling, automatic retries, full audit trails, and a config-switchable dispatch strategy (database queue or RabbitMQ). Includes a Blazor Server web UI for operational monitoring, file uploads, and dead-letter management.
@@ -208,6 +211,7 @@ See [ADR-016](docs/adrs/016-batch-import-strategy.md) for the design rationale.
 | Post-commit RabbitMQ publish | `IAfterSaveCallbackRegistry` | [ADR-017](docs/adrs/017-rabbitmq-post-commit-publish.md) |
 | Blazor Server as web frontend | `Ingestor.Web` | [ADR-018](docs/adrs/018-blazor-server-web-ui.md) |
 | Persistent Data Protection keys | `PersistKeysToAzureBlobStorage` | [ADR-019](docs/adrs/019-data-protection-azure-blob-storage.md) |
+| CI/CD with GitHub Actions, ACR, and OIDC | `.github/workflows/cd.yml` | [ADR-020](docs/adrs/020-ci-cd-github-actions-acr-oidc.md) |
 
 All ADRs are in [`docs/adrs/`](docs/adrs/).
 
@@ -228,6 +232,9 @@ All ADRs are in [`docs/adrs/`](docs/adrs/).
 | Testing | xUnit, FluentAssertions, Testcontainers, BenchmarkDotNet |
 | API docs | OpenAPI 3.1 (`/scalar`) |
 | Containers | Docker, Docker Compose |
+| Container Registry | Azure Container Registry (ACR) |
+| CI/CD | GitHub Actions (OIDC, Workload Identity Federation) |
+| Deployment target | Azure Container Apps |
 
 ---
 

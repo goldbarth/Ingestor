@@ -1,8 +1,10 @@
 ﻿using Ingestor.Application.Abstractions;
 using Ingestor.Application.Common;
+using Ingestor.Application.Jobs;
 using Ingestor.Application.Jobs.CreateImportJob;
 using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
+using Microsoft.Extensions.Options;
 
 namespace Ingestor.Tests.Unit.Jobs;
 
@@ -15,7 +17,7 @@ public sealed class CreateImportJobHandlerTests
 
     public CreateImportJobHandlerTests()
     {
-        _sut = new CreateImportJobHandler(_jobRepository, _jobDispatcher, _unitOfWork);
+        _sut = new CreateImportJobHandler(_jobRepository, _jobDispatcher, _unitOfWork, Options.Create(new ImportJobOptions()));
     }
 
     [Fact]

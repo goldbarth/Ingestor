@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ingestor.Application;
+using Ingestor.Application.Jobs;
 using Ingestor.Application.Pipeline;
 using Ingestor.Application.Telemetry;
 using Ingestor.Infrastructure.Persistence;
@@ -23,6 +24,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 builder.Services.AddApplication();
+builder.Services.Configure<ImportJobOptions>(builder.Configuration.GetSection(ImportJobOptions.SectionName));
 builder.Services.Configure<BatchOptions>(builder.Configuration.GetSection(BatchOptions.SectionName));
 
 builder.Services.AddOpenTelemetry()

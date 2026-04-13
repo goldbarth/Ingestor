@@ -5,6 +5,32 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [3.1.0] — 2026-03-31
+
+### Summary
+
+V3.1 automates deployment to Azure Container Apps via a GitHub Actions CD pipeline and makes the import-job retry limit configurable via `appsettings.json`.
+
+### Added
+
+#### CD pipeline (GitHub Actions) — [ADR-020](docs/adrs/020-ci-cd-github-actions-acr-oidc.md)
+- `.github/workflows/cd.yml` — triggers automatically after a successful CI run on `main`; builds and pushes Docker images for API, Worker, and Web to Azure Container Registry (ACR), then updates all three Container Apps
+- Authentication via OIDC (Workload Identity Federation) — GitHub Secrets hold only non-sensitive IDs (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`); no passwords stored
+- Images tagged with the full commit SHA (`head_sha`) — every running revision is traceable to the exact git commit that produced it
+- Container Apps pull images via System-assigned Managed Identity (`AcrPull` role) — no registry credentials on the Container App side
+- `workflow_run` gate ensures CD cannot run on broken code
+
+#### Configurable max attempts for import jobs (#171)
+- `ImportJobOptions` — new options class with `MaxAttempts`; registered via `IOptions<ImportJobOptions>` in both API and Worker hosts
+- `CreateImportJobHandler` and the Worker processing path read `MaxAttempts` from configuration instead of a hardcoded constant
+- Default value added to `appsettings.json` in both `Ingestor.Api` and `Ingestor.Worker`
+
+### Changed
+
+- README updated with CI/CD pipeline documentation and Azure Container Registry setup notes
+
+---
+
 ## [3.0.0] — 2026-03-30
 
 ### Summary

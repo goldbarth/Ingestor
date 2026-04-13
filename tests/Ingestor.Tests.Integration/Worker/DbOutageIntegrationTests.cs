@@ -1,3 +1,4 @@
+using System.Text;
 using FluentAssertions;
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Jobs.CreateImportJob;
@@ -13,8 +14,10 @@ namespace Ingestor.Tests.Integration.Worker;
 public sealed class DbOutageIntegrationTests(FaultInjectablePostgreSqlFixture fixture)
     : IClassFixture<FaultInjectablePostgreSqlFixture>
 {
-    private static readonly byte[] ValidCsvBytes =
-        "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef\nART-001,Sofa Milano,10,2026-04-01T00:00:00Z,REF-001\n"u8.ToArray();
+    private static byte[] ValidCsvBytes =>
+        Encoding.UTF8.GetBytes(
+            "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef\n" +
+            $"ART-001,Sofa Milano,10,{DateTimeOffset.UtcNow.AddDays(30):yyyy-MM-dd}T00:00:00Z,REF-001\n");
 
     private async Task<Domain.Jobs.JobId> CreateJobAsync(string supplierCode)
     {

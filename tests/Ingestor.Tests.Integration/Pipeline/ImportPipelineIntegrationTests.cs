@@ -1,3 +1,4 @@
+using System.Text;
 using FluentAssertions;
 using Ingestor.Application.Abstractions;
 using Ingestor.Application.Jobs.CreateImportJob;
@@ -14,8 +15,11 @@ namespace Ingestor.Tests.Integration.Pipeline;
 public sealed class ImportPipelineIntegrationTests(PostgreSqlFixture fixture)
     : IClassFixture<PostgreSqlFixture>
 {
-    private static readonly byte[] ValidCsvBytes =
-        "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef\nART-001,Sofa Milano,10,2026-04-01T00:00:00Z,REF-001\nART-002,Chair Stockholm,5,2026-04-15T00:00:00Z,REF-002\n"u8.ToArray();
+    private static byte[] ValidCsvBytes =>
+        Encoding.UTF8.GetBytes(
+            "ArticleNumber,ProductName,Quantity,ExpectedDate,SupplierRef\n" +
+            $"ART-001,Sofa Milano,10,{DateTimeOffset.UtcNow.AddDays(30):yyyy-MM-dd}T00:00:00Z,REF-001\n" +
+            $"ART-002,Chair Stockholm,5,{DateTimeOffset.UtcNow.AddDays(60):yyyy-MM-dd}T00:00:00Z,REF-002\n");
 
     private static readonly byte[] InvalidCsvBytes =
         "ArticleNumber,ProductName\nART-001,Sofa Milano\n"u8.ToArray();

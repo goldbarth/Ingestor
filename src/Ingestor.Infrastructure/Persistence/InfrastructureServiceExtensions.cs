@@ -18,11 +18,12 @@ public static class InfrastructureServiceExtensions
         services.AddSingleton<NpgsqlTracingCommandInterceptor>();
 
         services.AddDbContext<IngestorDbContext>((serviceProvider, options) =>
-        {
+            {
             options.UseNpgsql(connectionString);
             options.AddInterceptors(serviceProvider.GetRequiredService<NpgsqlTracingCommandInterceptor>());
             configureOptions?.Invoke(options);
-        });
+            }, 
+            optionsLifetime: ServiceLifetime.Singleton);
         
         var strategy = configuration["Dispatch:Strategy"] ?? "Database";
         

@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Diagnostics;
-using Ingestor.Infrastructure.Telemetry;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 

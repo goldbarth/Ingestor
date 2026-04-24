@@ -52,6 +52,9 @@ jobs:
       - name: Install EF tools
         run: dotnet tool install --global dotnet-ef
 
+      - name: Restore NuGet packages
+        run: dotnet restore
+
       - name: Run migrations
         run: dotnet ef database update --project src/Ingestor.Infrastructure --startup-project src/Ingestor.Api
         env:

@@ -71,7 +71,14 @@ if (!string.IsNullOrWhiteSpace(rawStrategy)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IngestorDbContext>();
-    await db.Database.MigrateAsync();
+    var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+    if (pendingMigrations.Any())
+    {
+        app.Logger.LogInformation("Applying {Count} pending migration(s): {Migrations}",
+            pendingMigrations.Count(),
+            string.Join(", ", pendingMigrations));
+        await db.Database.MigrateAsync();
+    }
 }
 
 if (app.Environment.IsDevelopment())

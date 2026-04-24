@@ -13,6 +13,7 @@ permissions:
 env:
   ACR: acringestordev.azurecr.io
   RG: rg-ingestor
+  DB_SERVER: psql-ingestor-dev-weu
 
 jobs:
   deploy:
@@ -34,6 +35,35 @@ jobs:
 
       - name: ACR Login
         run: az acr login --name acringestordev
+
+      - name: Get runner IP
+        id: runner_ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
+      - name: Allow runner IP in DB firewall
+        run: |
+          az postgres flexible-server firewall-rule create \
+            --resource-group ${{ env.RG }} \
+            --name ${{ env.DB_SERVER }} \
+            --rule-name github-actions-runner \
+            --start-ip-address ${{ steps.runner_ip.outputs.ip }} \
+            --end-ip-address ${{ steps.runner_ip.outputs.ip }}
+
+      - name: Install EF tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Run migrations
+        run: dotnet ef database update --project src/Ingestor.Infrastructure --startup-project src/Ingestor.Api
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+
+      - name: Remove runner IP from DB firewall
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group ${{ env.RG }} \
+            --name ${{ env.DB_SERVER }} \
+            --rule-name github-actions-runner --yes
 
       - name: Build & Push API
         run: |

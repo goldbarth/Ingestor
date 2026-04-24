@@ -2,8 +2,6 @@
 using Ingestor.Application.Abstractions;
 using Ingestor.Domain.Jobs;
 using Ingestor.Infrastructure.Persistence;
-using Ingestor.Infrastructure.Telemetry;
-using RabbitMQ.Client;
 
 namespace Ingestor.Infrastructure.Dispatching.RabbitMq;
 

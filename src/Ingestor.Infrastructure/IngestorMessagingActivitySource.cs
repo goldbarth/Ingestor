@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Ingestor.Infrastructure.Telemetry;
+namespace Ingestor.Infrastructure;
 
 public static class IngestorMessagingActivitySource
 {

@@ -4,7 +4,6 @@ using Ingestor.Application.Abstractions;
 using Ingestor.Application.Pipeline;
 using Ingestor.Domain.Jobs;
 using Ingestor.Domain.Jobs.Enums;
-using Ingestor.Infrastructure.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

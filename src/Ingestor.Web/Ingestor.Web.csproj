@@ -9,8 +9,5 @@
     <ProjectReference Include="..\Ingestor.Contracts\Ingestor.Contracts.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.1" />
-  </ItemGroup>
 
 </Project>

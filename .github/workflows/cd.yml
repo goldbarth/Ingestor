@@ -58,7 +58,7 @@ jobs:
       - name: Run migrations
         run: dotnet ef database update --project src/Ingestor.Infrastructure --startup-project src/Ingestor.Api
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.DB_CONNECTION_STRING }}
+          CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
 
       - name: Remove runner IP from DB firewall
         if: always()

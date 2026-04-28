@@ -67,6 +67,13 @@ jobs:
             || flyctl volumes create ingestor_web_keys \
                  --region fra --size 1 --app ingestor-web --yes
 
+      - name: Ensure Web volume exists
+        run: |
+          flyctl volumes list --app ingestor-web --json \
+            | jq -e '.[] | select(.name == "ingestor_web_keys")' \
+            || flyctl volumes create ingestor_web_keys \
+                 --region fra --size 1 --app ingestor-web --yes
+
       - name: Set Web secrets
         run: |
           flyctl secrets set \

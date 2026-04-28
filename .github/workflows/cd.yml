@@ -49,7 +49,7 @@ jobs:
             --app ingestor-api --stage
 
       - name: Deploy API
-        run: flyctl deploy --config fly.api.toml --remote-only
+        run: flyctl deploy --config fly.api.toml --remote-only --ha=false --strategy=immediate
 
       - name: Set Worker secrets
         run: |
@@ -58,7 +58,14 @@ jobs:
             --app ingestor-worker --stage
 
       - name: Deploy Worker
-        run: flyctl deploy --config fly.worker.toml --remote-only
+        run: flyctl deploy --config fly.worker.toml --remote-only --ha=false --strategy=immediate
+
+      - name: Ensure Web volume exists
+        run: |
+          flyctl volumes list --app ingestor-web --json \
+            | jq -e '.[] | select(.name == "ingestor_web_keys")' \
+            || flyctl volumes create ingestor_web_keys \
+                 --region fra --size 1 --app ingestor-web --yes
 
       - name: Ensure Web volume exists
         run: |
@@ -73,5 +80,11 @@ jobs:
             IngestorApi__BaseUrl="https://ingestor-api.fly.dev" \
             --app ingestor-web --stage
 
+      - name: Destroy existing Web machines
+        run: |
+          flyctl machines list --app ingestor-web --json \
+            | jq -r '.[].id' \
+            | xargs -r -I{} flyctl machines destroy {} --app ingestor-web --force
+
       - name: Deploy Web
-        run: flyctl deploy --config fly.web.toml --remote-only
+        run: flyctl deploy --config fly.web.toml --remote-only --ha=false

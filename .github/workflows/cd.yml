@@ -7,17 +7,14 @@ on:
     branches: [main]
 
 permissions:
-  id-token: write
   contents: read
 
 env:
-  ACR: acringestordev.azurecr.io
-  RG: rg-ingestor
-  DB_SERVER: psql-ingestor-dev-weu
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
 jobs:
   deploy:
-    name: Deploy to Azure Container Apps
+    name: Deploy to Fly.io
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
@@ -25,29 +22,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: ACR Login
-        run: az acr login --name acringestordev
-
-      - name: Get runner IP
-        id: runner_ip
-        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
-
-      - name: Allow runner IP in DB firewall
-        run: |
-          az postgres flexible-server firewall-rule create \
-            --resource-group ${{ env.RG }} \
-            --name ${{ env.DB_SERVER }} \
-            --rule-name github-actions-runner \
-            --start-ip-address ${{ steps.runner_ip.outputs.ip }} \
-            --end-ip-address ${{ steps.runner_ip.outputs.ip }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -65,34 +39,33 @@ jobs:
         env:
           CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
 
-      - name: Remove runner IP from DB firewall
-        if: always()
-        run: |
-          az postgres flexible-server firewall-rule delete \
-            --resource-group ${{ env.RG }} \
-            --name ${{ env.DB_SERVER }} \
-            --rule-name github-actions-runner --yes
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Build & Push API
+      - name: Set API secrets
         run: |
-          docker build -t ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Api/Dockerfile .
-          docker push ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }}
-
-      - name: Build & Push Worker
-        run: |
-          docker build -t ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Worker/Dockerfile .
-          docker push ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }}
-
-      - name: Build & Push Web
-        run: |
-          docker build -t ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }} -f src/Ingestor.Web/Dockerfile .
-          docker push ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }}
+          flyctl secrets set \
+            ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
+            --app ingestor-api --stage
 
       - name: Deploy API
-        run: az containerapp update --name ca-ingestor-api --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-api:${{ github.event.workflow_run.head_sha }}
+        run: flyctl deploy --config fly.api.toml --remote-only
+
+      - name: Set Worker secrets
+        run: |
+          flyctl secrets set \
+            ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
+            --app ingestor-worker --stage
 
       - name: Deploy Worker
-        run: az containerapp update --name ca-ingestor-worker --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-worker:${{ github.event.workflow_run.head_sha }}
+        run: flyctl deploy --config fly.worker.toml --remote-only
+
+      - name: Set Web secrets
+        run: |
+          flyctl secrets set \
+            ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
+            IngestorApi__BaseUrl="https://ingestor-api.fly.dev" \
+            --app ingestor-web --stage
 
       - name: Deploy Web
-        run: az containerapp update --name ca-ingestor-web --resource-group ${{ env.RG }} --image ${{ env.ACR }}/ingestor-web:${{ github.event.workflow_run.head_sha }}
+        run: flyctl deploy --config fly.web.toml --remote-only

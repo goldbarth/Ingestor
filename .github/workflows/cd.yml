@@ -49,6 +49,11 @@ jobs:
             --start-ip-address ${{ steps.runner_ip.outputs.ip }} \
             --end-ip-address ${{ steps.runner_ip.outputs.ip }}
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
       - name: Install EF tools
         run: dotnet tool install --global dotnet-ef
 

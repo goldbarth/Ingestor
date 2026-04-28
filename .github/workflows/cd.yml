@@ -48,8 +48,14 @@ jobs:
             ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
             --app ingestor-api --stage
 
+      - name: Destroy existing API machines
+        run: |
+          flyctl machines list --app ingestor-api --json \
+            | jq -r '.[].id' \
+            | xargs -r -I{} flyctl machines destroy {} --app ingestor-api --force
+
       - name: Deploy API
-        run: flyctl deploy --config fly.api.toml --remote-only --ha=false --strategy=immediate
+        run: flyctl deploy --config fly.api.toml --remote-only --ha=false
 
       - name: Set Worker secrets
         run: |
@@ -57,8 +63,14 @@ jobs:
             ConnectionStrings__DefaultConnection="${{ secrets.DB_CONNECTION_STRING }}" \
             --app ingestor-worker --stage
 
+      - name: Destroy existing Worker machines
+        run: |
+          flyctl machines list --app ingestor-worker --json \
+            | jq -r '.[].id' \
+            | xargs -r -I{} flyctl machines destroy {} --app ingestor-worker --force
+
       - name: Deploy Worker
-        run: flyctl deploy --config fly.worker.toml --remote-only --ha=false --strategy=immediate
+        run: flyctl deploy --config fly.worker.toml --remote-only --ha=false
 
       - name: Ensure Web volume exists
         run: |

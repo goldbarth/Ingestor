@@ -1,7 +1,7 @@
 # ADR-020: CI/CD with GitHub Actions, Azure Container Registry, and OIDC
 
 **Date:** 2026-03-31   
-**Status:** Accepted
+**Status:** Superseded — replaced by Fly.io-based CD pipeline (see `cd.yml` and `fly.*.toml`, 2026-04-29)
 
 ---
 

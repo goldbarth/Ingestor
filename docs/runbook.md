@@ -510,11 +510,29 @@ recorded the chunk as failed, and continued processing the remaining chunks.
 
 ---
 
-## Azure Container Apps Deployment
+## Fly.io Deployment
 
-> Applies when running `Ingestor.Web` on Azure Container Apps.
+> Applies when running Ingestor on Fly.io. The three apps are `ingestor-api`, `ingestor-worker`, and `ingestor-web`. See [ADR-021](adrs/021-cd-flyio.md) for the deployment design.
 
-### Data Protection Keys Lost After Container Restart
+### Check Application Status
+
+```bash
+flyctl status --app ingestor-api
+flyctl status --app ingestor-worker
+flyctl status --app ingestor-web
+```
+
+### Stream Live Logs
+
+```bash
+flyctl logs --app ingestor-api
+flyctl logs --app ingestor-worker
+flyctl logs --app ingestor-web
+```
+
+---
+
+### Data Protection Keys Lost After Machine Restart
 
 **Symptoms**
 
@@ -524,40 +542,33 @@ recorded the chunk as failed, and continued processing the remaining chunks.
 
 **Cause**
 
-Azure Container Apps defaults to scale-to-zero: the container stops when there is no traffic and restarts on the next request. Each restart generates new in-memory Data Protection keys. Tokens encrypted by the previous process are invalid on restart.
+Fly.io machines can be stopped and restarted (scale-to-zero or machine replacement). Data Protection keys are persisted to a Fly.io volume mounted at `/data/keys`. If the volume is missing or detached, each restart generates new in-memory keys and tokens from the previous process become invalid.
 
 **Fix**
 
-1. Ensure a storage account and `dataprotection` container exist:
+1. Verify the volume exists:
 
    ```bash
-   az storage account create -g <rg> -n <storage-name> --location northeurope --sku Standard_LRS
-   az storage container create --account-name <storage-name> --name dataprotection
+   flyctl volumes list --app ingestor-web
    ```
 
-2. Retrieve the connection string and store it as a Container Apps secret:
+   The volume `ingestor_web_keys` should be listed and `attached` to a machine. If it is missing, create it:
 
    ```bash
-   az storage account show-connection-string -g <rg> -n <storage-name> --query connectionString -o tsv
-
-   az containerapp secret set -g <rg> -n ca-ingestor-web \
-     --secrets "dp-storage=<connection-string>"
+   flyctl volumes create ingestor_web_keys --region fra --size 1 --app ingestor-web
    ```
 
-3. Set the environment variable referencing the secret:
+2. Confirm the environment variable is set (defined in `fly.web.toml`):
+
+   ```
+   DataProtection__KeysPath = "/data/keys"
+   ```
+
+3. Redeploy to attach the volume:
 
    ```bash
-   az containerapp update -g <rg> -n ca-ingestor-web \
-     --set-env-vars "DataProtection__StorageConnectionString=secretref:dp-storage"
+   flyctl deploy --config fly.web.toml --remote-only --ha=false
    ```
-
-4. Force a new revision so the secret takes effect:
-
-   ```bash
-   az containerapp update -g <rg> -n ca-ingestor-web --revision-suffix v2
-   ```
-
-See [ADR-019](adrs/019-data-protection-azure-blob-storage.md) for the design rationale.
 
 ---
 
@@ -569,15 +580,7 @@ See [ADR-019](adrs/019-data-protection-azure-blob-storage.md) for the design rat
 
 **Cause**
 
-This is expected behaviour. Azure Container Apps stops idle containers and restarts them on the next request. The delay is the container startup time.
-
-No action is required unless the latency is unacceptable. To prevent scale-to-zero entirely, set `--min-replicas 1`:
-
-```bash
-az containerapp update -g <rg> -n ca-ingestor-web --min-replicas 1
-```
-
-Note: `--min-replicas 1` incurs cost even when idle.
+Expected behaviour. `fly.web.toml` sets `auto_stop_machines = 'stop'` and `min_machines_running = 1`, so one machine is always kept running. If latency still occurs, the machine may be restarting after a crash — check `flyctl status` and `flyctl logs`.
 
 ---
 
@@ -585,21 +588,25 @@ Note: `--min-replicas 1` incurs cost even when idle.
 
 **Symptoms**
 
-- A secret was updated via `az containerapp secret set` but the running container still uses the old value
+- A secret was set via `flyctl secrets set` but the running machine still uses the old value
 
 **Cause**
 
-Container Apps secrets are applied at revision creation time, not dynamically. An existing revision does not pick up secret changes.
+Fly.io secrets are applied on the next machine start. The currently running machine does not pick them up automatically.
 
 **Fix**
 
-Force a new revision:
+Trigger a redeployment:
 
 ```bash
-az containerapp update -g <rg> -n <app-name> --revision-suffix v<N>
+flyctl deploy --config fly.<app>.toml --remote-only --ha=false
 ```
 
-Use an incrementing suffix (v2, v3, ...) to distinguish revisions.
+Or restart the machine directly:
+
+```bash
+flyctl machines restart --app <app-name>
+```
 
 ---
 

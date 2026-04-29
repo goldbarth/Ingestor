@@ -5,6 +5,39 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [3.2.0] — 2026-04-29
+
+### Summary
+
+V3.2 migrates the deployment target from Azure Container Apps to Fly.io and replaces Azure Blob Storage–based Data Protection key persistence with a local file system backed by a Fly.io persistent volume. All local Docker Compose and bare .NET setups are unaffected.
+
+### Changed
+
+#### CD pipeline — [ADR-021](docs/adrs/021-cd-flyio.md)
+- `.github/workflows/cd.yml` — deployment target changed from Azure Container Apps to Fly.io; ACR push and `az containerapp update` steps replaced by `flyctl deploy` for all three apps (`ingestor-api`, `ingestor-worker`, `ingestor-web`)
+- Authentication changed from OIDC / Workload Identity Federation to a single `FLY_API_TOKEN` secret
+- Image build moved to Fly.io remote builder — no external container registry required
+- EF Core migrations now run as the first CD step before any application is deployed
+- Machine-replace strategy: existing machines are destroyed before each deployment to stay within free-tier limits (`--ha=false`)
+
+#### Data Protection key storage — [ADR-021](docs/adrs/021-cd-flyio.md)
+- `Ingestor.Web/Program.cs` — `PersistKeysToAzureBlobStorage` replaced by `PersistKeysToFileSystem`; configuration key changed from `DataProtection:StorageConnectionString` to `DataProtection:KeysPath`
+- `fly.web.toml` — persistent volume `ingestor_web_keys` mounted at `/data/keys`; `DataProtection__KeysPath` set to `/data/keys`
+- `Azure.Extensions.AspNetCore.DataProtection.Blobs` NuGet package no longer required
+
+### Superseded
+
+- [ADR-019](docs/adrs/019-data-protection-azure-blob-storage.md) — Azure Blob Storage key persistence
+- [ADR-020](docs/adrs/020-ci-cd-github-actions-acr-oidc.md) — CI/CD with ACR and OIDC
+
+### Migration notes
+
+**Local Docker Compose and bare .NET** setups are not affected. `DataProtection:KeysPath` is opt-in; when absent the application falls back to default in-memory key storage.
+
+**Fly.io deployments:** ensure the `ingestor_web_keys` volume exists before deploying `ingestor-web`. The CD pipeline creates it automatically if missing. The `FLY_API_TOKEN` secret must be set in GitHub Secrets; the three Azure credential secrets (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`) can be removed.
+
+---
+
 ## [3.1.0] — 2026-03-31
 
 ### Summary

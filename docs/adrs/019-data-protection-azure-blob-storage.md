@@ -1,7 +1,7 @@
 # ADR-019: Persistent Data Protection Keys via Azure Blob Storage
 
 **Date:** 2026-03-30  
-**Status:** Accepted
+**Status:** Superseded — replaced by `PersistKeysToFileSystem` backed by a Fly.io persistent volume (see `fly.web.toml`, 2026-04-29)
 
 ---
 

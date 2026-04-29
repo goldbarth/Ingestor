@@ -210,8 +210,8 @@ See [ADR-016](docs/adrs/016-batch-import-strategy.md) for the design rationale.
 | Chunk-based batch processing and partial failures | `LineChunker`, `BatchOptions` | [ADR-016](docs/adrs/016-batch-import-strategy.md) |
 | Post-commit RabbitMQ publish | `IAfterSaveCallbackRegistry` | [ADR-017](docs/adrs/017-rabbitmq-post-commit-publish.md) |
 | Blazor Server as web frontend | `Ingestor.Web` | [ADR-018](docs/adrs/018-blazor-server-web-ui.md) |
-| Persistent Data Protection keys | `PersistKeysToAzureBlobStorage` | [ADR-019](docs/adrs/019-data-protection-azure-blob-storage.md) |
-| CI/CD with GitHub Actions, ACR, and OIDC | `.github/workflows/cd.yml` | [ADR-020](docs/adrs/020-ci-cd-github-actions-acr-oidc.md) |
+| Persistent Data Protection keys via Fly.io volume | `PersistKeysToFileSystem`, `fly.web.toml` | [ADR-021](docs/adrs/021-cd-flyio.md) |
+| CI/CD with GitHub Actions and Fly.io | `.github/workflows/cd.yml` | [ADR-021](docs/adrs/021-cd-flyio.md) |
 
 All ADRs are in [`docs/adrs/`](docs/adrs/).
 
@@ -232,9 +232,9 @@ All ADRs are in [`docs/adrs/`](docs/adrs/).
 | Testing | xUnit, FluentAssertions, Testcontainers, BenchmarkDotNet |
 | API docs | OpenAPI 3.1 (`/scalar`) |
 | Containers | Docker, Docker Compose |
-| Container Registry | Azure Container Registry (ACR) |
-| CI/CD | GitHub Actions (OIDC, Workload Identity Federation) |
-| Deployment target | Azure Container Apps |
+| Container Registry | — (Fly.io remote builder, no external registry) |
+| CI/CD | GitHub Actions (FLY_API_TOKEN) |
+| Deployment target | Fly.io |
 
 ---
 

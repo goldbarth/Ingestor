@@ -34,7 +34,7 @@ else
         @if (!IsTerminal(_job.Status))
         {
             <small class="text-muted">
-                <span class="spinner-border spinner-border-sm me-1"></span>Polling every 3s
+                <span class="spinner-border spinner-border-sm me-1"></span>Polling every 10s
             </small>
         }
     </div>
@@ -226,7 +226,7 @@ else
 
     private async Task PollAsync()
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
         try
         {
             while (await timer.WaitForNextTickAsync(_cts.Token))

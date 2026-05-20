@@ -288,7 +288,7 @@
 
     private async Task PollAsync()
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         try
         {
             while (await timer.WaitForNextTickAsync(_cts.Token))

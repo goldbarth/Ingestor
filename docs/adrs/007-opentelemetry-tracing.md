@@ -1,6 +1,7 @@
 # ADR-007: OpenTelemetry Tracing for Pipeline Observability
 
 **Date:** 2026-03-18
+**Updated:** 2026-05-21
 **Status:** Accepted
 
 ---
@@ -79,6 +80,55 @@ OTLP export (for Jaeger, Grafana Tempo, or any OpenTelemetry Collector) is the i
 
 ### When to revisit
 
-- Add `AddOtlpExporter()` and configure a collector in Docker Compose when a trace backend (Jaeger, Grafana Tempo) is introduced.
+- ~~Add `AddOtlpExporter()` and configure a collector in Docker Compose when a trace backend (Jaeger, Grafana Tempo) is introduced.~~ **Done — see 2026-05-21 update below.**
 - Add `try/catch` + `SetStatus(Error)` inside span blocks if unhandled exceptions in the pipeline become a recurring operational issue.
 - Add a root span for the entire pipeline (parent of the three step spans) to represent the full job processing duration as a single trace.
+
+---
+
+## Update: 2026-05-21 — OTLP Export and Grafana Stack
+
+### What changed
+
+The Console Exporter described above was the V1 starting point to confirm spans were emitted correctly. All three signal types (traces, metrics, logs) now export via `AddOtlpExporter()` to a local Grafana stack in Docker Compose.
+
+### Instrumentation scope (current)
+
+Three `ActivitySource` instances are registered in both host projects:
+
+| Source | Constant | Layer | What it traces |
+|---|---|---|---|
+| `Ingestor.Pipeline` | `IngestorActivitySource.Name` | Application | Parse / Validate / Process steps |
+| `Ingestor.Database` | `IngestorDatabaseActivitySource.Name` | Infrastructure | Every Npgsql command via `NpgsqlTracingCommandInterceptor` |
+| `Ingestor.Messaging` | `IngestorMessagingActivitySource.Name` | Infrastructure | RabbitMQ publish and consume spans |
+
+`IngestorDatabaseActivitySource` and `IngestorMessagingActivitySource` live in the `Infrastructure` layer and may reference OTel packages — the BCL-only constraint applies only to the `Application` layer.
+
+### Metrics (current)
+
+`IngestorMeter` (`Ingestor.Application`, `src/Ingestor.Application/Telemetry/IngestorMeter.cs`) exposes four instruments:
+
+| Metric name | Type | Unit | Labels |
+|---|---|---|---|
+| `ingestor.pipeline.runs` | Counter | `{run}` | `outcome`, `error.code` |
+| `ingestor.pipeline.items_processed` | Counter | `{item}` | `outcome` |
+| `ingestor.pipeline.duration` | Histogram | `ms` | `outcome` |
+| `ingestor.pipeline.step.duration` | Histogram | `ms` | `step`, `outcome` |
+
+ASP.NET Core and Kestrel meters are also registered (`Microsoft.AspNetCore.Hosting`, `Microsoft.AspNetCore.Server.Kestrel`).
+
+### Grafana stack (docker-compose)
+
+```
+api / worker
+    └─► OTel Collector :4317 (OTLP gRPC)
+            ├─► Grafana Tempo :4317     — traces
+            ├─► Prometheus :9090        — metrics (scrape :8889)
+            └─► Grafana Loki :3100      — logs (OTLP HTTP /otlp)
+
+Grafana :3000 — unified UI (Prometheus + Tempo + Loki datasources)
+```
+
+Config files live under `observability/`. `OTEL_EXPORTER_OTLP_ENDPOINT` defaults to `http://otelcollector:4317` in docker-compose; override via `.env` for external backends.
+
+The provisioned **Ingestor Pipeline** dashboard (`observability/grafana/dashboards/ingestor-pipeline.json`) surfaces pipeline runs, duration percentiles, items processed, step breakdown, error rate, and ASP.NET Core request rate.

@@ -17,6 +17,10 @@
 | Requeue a failed job          | `POST /api/imports/{id}/requeue`               | For `DeadLettered`, `ValidationFailed`, or `PartiallySucceeded` |
 | Check worker heartbeat        | `GET /health` on Worker Host                   | Reports `Unhealthy` if heartbeat is stale          |
 | RabbitMQ Management UI        | `http://localhost:15672`                       | Queue depth, connections, dead-letter queue        |
+| Grafana dashboards            | `http://localhost:3000`                        | Pipeline metrics, traces, logs; anonymous access   |
+| Prometheus raw metrics        | `http://localhost:9090`                        | PromQL queries, scrape targets                     |
+| Grafana Tempo (traces)        | `http://localhost:3200`                        | Trace explorer; query by `job.id` tag              |
+| Grafana Loki (logs)           | `http://localhost:3100`                        | Log aggregation; query by `job_id` label           |
 
 ---
 
@@ -243,6 +247,56 @@
 
 ---
 
+## Observability Stack (Local)
+
+> Applies when running via Docker Compose. The stack requires `docker compose up` with all services (default).
+
+### Services
+
+| Service | URL | Purpose |
+|---|---|---|
+| Grafana | `http://localhost:3000` | Unified UI — dashboards, trace explorer, log explorer |
+| Prometheus | `http://localhost:9090` | Raw metrics; PromQL |
+| Grafana Tempo | `http://localhost:3200` | Distributed trace storage |
+| Grafana Loki | `http://localhost:3100` | Log aggregation |
+
+Grafana is pre-configured with no login required (anonymous admin).
+
+### Ingestor Pipeline Dashboard
+
+Open Grafana → **Dashboards** → **Ingestor** → **Ingestor Pipeline**.
+
+Panels:
+
+| Panel | What to look for |
+|---|---|
+| Pipeline Runs / min | Drop in success rate or spike in failures |
+| Pipeline Duration (p50/p95/p99) | Latency regression after code changes |
+| Items Processed / min | Throughput baseline |
+| Step Duration P95 | Which step (parse / validate / process) is slowest |
+| Error Rate | Threshold lines at 1% (yellow) and 5% (red) |
+| ASP.NET Core Request Rate | API availability by route |
+
+### Finding a Trace for a Specific Job
+
+1. Open Grafana → **Explore** → datasource **Tempo**
+2. Query type: **Search**
+3. Tag filter: `job.id = <job-id>`
+4. Select the trace → expand the span tree to inspect each pipeline step's duration and status
+
+### OTel Collector is Down
+
+If `ingestor-otelcollector-1` is unhealthy, the API and Worker log the OTLP export failure but continue running — telemetry is dropped, application processing is unaffected.
+
+```bash
+docker compose logs otelcollector --tail=50
+docker compose restart otelcollector
+```
+
+After the collector restarts, the SDK reconnects automatically within a few seconds.
+
+---
+
 ## Log Investigation
 
 ### Finding Logs for a Specific Job
@@ -255,10 +309,10 @@ docker compose logs worker | grep "<job-id>"
 docker compose logs api    | grep "<job-id>"
 ```
 
-In a structured log aggregator (e.g. Seq, Grafana Loki), filter by:
+In Grafana Loki (Explore → datasource **Loki**), filter by:
 
-```
-JobId = "<job-id>"
+```logql
+{service_name="Ingestor.Worker"} | json | job_id = "<job-id>"
 ```
 
 ### Common Log Patterns

@@ -32,5 +32,8 @@ RUN dotnet publish src/Ingestor.Api/Ingestor.Api.csproj \
 # Stage 2 – Runtime (ASP.NET Core, no SDK, no source code)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Ingestor.Api.dll"]

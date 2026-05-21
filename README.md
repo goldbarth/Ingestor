@@ -6,7 +6,7 @@
     <img src="https://github.com/goldbarth/Ingestor/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
   <a href="https://github.com/goldbarth/Ingestor/actions/workflows/cd.yml">
-    <img src="https://github.com/goldbarth/Ingestor/actions/workflows/cd.yml/badge.svg" alt="CD" />
+    <img src="https://github.com/goldbarth/Ingestor/actions/workflows/cd.yml/badge.svg?branch=main" alt="CD" />
   </a>
 </p>
 

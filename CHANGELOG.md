@@ -5,6 +5,33 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [3.3.0] — 2026-05-21
+
+### Summary
+
+V3.3 adds a full local observability stack to Docker Compose, wiring the existing OTLP exports from the API and Worker services into Grafana, Tempo, Prometheus, and Loki. An Ingestor Pipeline dashboard ships pre-built in the repository. A long-standing healthcheck failure in all three runtime images is also fixed.
+
+### Added
+
+#### Grafana observability stack — [ADR-007](docs/adrs/007-opentelemetry-tracing.md)
+- `docker-compose.yml` — four new services: `otelcollector`, `prometheus`, `tempo`, `loki`, `grafana`
+- OTel Collector (`otelcollector:4317`) routes telemetry: traces → Tempo, metrics → Prometheus (scrape via `:8889`), logs → Loki (OTLP HTTP)
+- Grafana at `:3000` — anonymous admin, no login required; Prometheus, Tempo, and Loki pre-provisioned as datasources
+- `observability/grafana/dashboards/ingestor-pipeline.json` — pre-built dashboard: runs/min, duration p50/p95/p99, items processed, step duration breakdown, error rate, ASP.NET Core request rate
+- `observability/grafana/provisioning/` — dashboards and datasources provisioned automatically on startup
+- `observability/otel-collector.yaml`, `prometheus.yaml`, `tempo.yaml`, `loki.yaml` — collector and backend configuration
+- `OTEL_EXPORTER_OTLP_ENDPOINT` defaults to `http://otelcollector:4317` in Docker Compose; override via `.env` to target an external backend (e.g. Grafana Cloud)
+
+#### Documentation
+- `docs/runbook.md` — step-by-step guides for accessing dashboards, querying traces in Tempo, reading Loki logs, and troubleshooting the OTel Collector
+- `docs/adrs/007-opentelemetry-tracing.md` — updated to reflect completed OTLP export integration and local stack configuration
+
+### Fixed
+
+- **Healthcheck failure in all three runtime images** — `curl` added to `Ingestor.Api`, `Ingestor.Worker`, and `Ingestor.Web` Dockerfiles; `mcr.microsoft.com/dotnet/aspnet:10.0` does not include `curl`, causing all containers to report permanently unhealthy
+
+---
+
 ## [3.2.0] — 2026-04-29
 
 ### Summary
